@@ -1,6 +1,5 @@
 import os
-import tkinter as tk
-from src.labeler.labeler import VideoLabelerApp, launch_video_labeler
+from src.labeler.labeler import launch_video_labeler
 from src.utils import *
 
 #-------- Parameters --------------------------#

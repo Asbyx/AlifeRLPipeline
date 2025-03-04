@@ -2,10 +2,8 @@ import os
 import pandas as pd
 import tkinter as tk
 from tkinter import messagebox
-from src.utils import Simulation
 import cv2
 from PIL import Image, ImageTk
-import random
 from tkinter import ttk
 
 def launch_video_labeler(simulation, pairs_path, out_paths, verbose=True):
