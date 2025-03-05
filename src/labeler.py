@@ -82,6 +82,14 @@ class VideoLabelerApp:
         self.quit_button = tk.Button(self.quit_frame, text="Quit", command=self.save_and_exit)
         self.quit_button.pack(side="right", padx=10)
 
+        # Create a new frame for keybindings
+        self.keybindings_frame = tk.Frame(self.master)
+        self.keybindings_frame.pack(side="left", padx=10, pady=10)
+
+        # Add a label to display keybindings
+        self.keybindings_label = tk.Label(self.keybindings_frame, text="Keybindings:\nLeft Arrow: Left Wins\nRight Arrow: Right Wins", justify="left")
+        self.keybindings_label.pack()
+
     def bind_keys(self):
         self.master.bind('<Left>', lambda event: self.left_wins())
         self.master.bind('<Right>', lambda event: self.right_wins())

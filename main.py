@@ -79,7 +79,7 @@ def main():
         elif choice == "2":
             launch_benchmarker(simulation, generator, rewardor, out_paths)
         elif choice == "3":
-            launch_training(generator, rewardor, pairs_path, out_paths)
+            launch_training(generator, rewardor, simulation, pairs_path, out_paths)
         elif choice == "4":
             print("Exiting AlifeHub...")
             break

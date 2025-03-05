@@ -23,7 +23,7 @@ class Generator:
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def train(self, rewardor):
+    def train(self, simulation, rewardor):
         """Train the model using the rewardor"""
         raise NotImplementedError("Must be implemented in inheriting class.")
     
