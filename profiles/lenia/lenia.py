@@ -16,7 +16,7 @@ class Loader(src.utils.Loader):
 
         print("Initializing rewardor...")
         rewardor = Lenia_Rewardor(device=device)
-        if os.path.exists(out_paths["rewardor"]):
+        if os.path.exists(out_paths["rewardor"]+"/rewardor.pth"):
             print("Loading existing rewardor model...")
             rewardor.load(out_paths["rewardor"])
 

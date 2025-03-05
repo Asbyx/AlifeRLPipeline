@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 import cv2
 from PIL import Image, ImageTk
 from tkinter import ttk
@@ -119,10 +119,14 @@ class VideoLabelerApp:
 
     def prompt_generate_new_pairs(self):
         if messagebox.askyesno("Generate New Pairs", "No more unranked pairs. Would you like to generate new pairs?"):
-            self.generate_new_pairs()
+            num_pairs = simpledialog.askinteger("Input", "How many pairs do you want to generate?", minvalue=1)
+            if num_pairs is not None:
+                self.generate_new_pairs(num_pairs)
+        else:
+            self.save_and_exit()
 
-    def generate_new_pairs(self):
-        self.simulation.generate_pairs(3, self.out_paths, self.pairs_path, verbose=True)
+    def generate_new_pairs(self, num_pairs):
+        self.simulation.generate_pairs(num_pairs, self.out_paths, self.pairs_path, verbose=True)
         self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
         self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()]
         self.unranked_pairs = self.unranked_pairs.sample(frac=1).reset_index(drop=True)  # Shuffle pairs
