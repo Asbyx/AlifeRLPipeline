@@ -4,24 +4,29 @@ from src.labeler import launch_video_labeler
 from src.benchmarker import launch_benchmarker
 from src.trainer import launch_training
 from src.utils import *
+import importlib
 
-#-------- Parameters --------------------------#
-import profiles.lenia.lenia as lenia
+# List available profiles
+profiles = [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d))]
+print("Available profiles:")
+for p in profiles:
+    print(f"- {p}")
 
-# Initialize components
-print("Initializing components...")
-profile = "lenia"                   # out directory 
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+profile = input("\nPlease enter the profile you want to use: ")
+profile_file_path = os.path.join("profiles", profile, f"{profile}.py")
 
-# Create generator and simulation
-print("Initializing rewardor...")
-rewardor = lenia.Lenia_Rewardor(device=device)
-print("Initializing generator...")
-generator = lenia.Lenia_Generator(rewardor)
-print("Initializing simulation...")
-simulation = lenia.Lenia_Simulation(generator, (3, 400, 400), 0.1, 300)
-rewardor.set_simulation(simulation)
-#-------- Do not touch below this line --------#
+# Load the module dynamically
+try:
+    spec = importlib.util.spec_from_file_location(profile, profile_file_path)
+    profile_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(profile_module)
+except Exception as e:
+    print(f"Error loading profile '{profile}': {str(e)}")
+    exit(1)
+
+# Instantiate the loader
+loader = profile_module.Loader()
+generator, rewardor, simulation = loader.load()
 
 # Setup the out folders (outputs, videos)
 out_path = os.path.join("out", profile)

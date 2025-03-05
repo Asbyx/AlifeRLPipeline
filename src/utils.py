@@ -1,7 +1,18 @@
 import os
-import pickle as pk
 import pandas as pd
 import itertools
+
+class Loader:
+    """
+    Abstract Loader class to load a Generator, a Rewardor and a Simulation
+    It is expected to be also named Loader.
+    """
+    def load(self):
+        """
+        Load the generator, rewardor and simulation
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")    
+    
 
 class Generator:
     """Abstract Generator class for generating parameters for a alife model"""
@@ -22,6 +33,14 @@ class Generator:
         for param in params:
             res.append(hash(param))
         return res
+
+    def save(self, path):
+        """Save the generator to the path"""
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    def load(self, path):
+        """Load the generator from the path"""
+        raise NotImplementedError("Must be implemented in inheriting class.")
 
 
 

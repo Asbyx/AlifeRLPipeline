@@ -8,13 +8,15 @@ The pipeline is a loop of 4 stages:
 - **Fine Tuning**: Using the Rewardor, train the Generator.
 - and repeat...
 
-This pipeline include every steps. **In order to use it:** one must implement a `Simulation`, a `Generator` and a `Rewardor`, in `src.profiles/<new profile>`, using the abstract classes given in `src.utils.py`.  
+This pipeline include every steps.  
+**In order to use it:** one must implement a `Simulation`, a `Generator` and a `Rewardor`, in `src.profiles/<new profile>`, using the abstract classes given in `src.utils.py`.  
+**The only requirement** is to have a `Loader` (abstract still available in `src.utils.py`) in a file `<new profile>.py`, the rest is free to implement as your convenience!
 Then, by running the main, the full pipeline is launched and the training starts.
 
 # WIP
-- Make a loader for the generator, rewardor and the simulation separated from the main
 - Saving and loading of the models
 - Benchmarking
 - Labeler: 
+    - put the window at front when launching
     - display rewardor scores
     - display % of labeling
