@@ -3,7 +3,7 @@ from profiles.lenia.main_utils import gen_batch_params
 
 class Lenia_Generator(src.utils.Generator):
     """
-        Generator class for the Lenia-like automaton.
+        Generator class for Lenia
     """
     def __init__(self, rewardor):
         super().__init__()
@@ -33,3 +33,9 @@ class Lenia_Generator(src.utils.Generator):
 
     def train(self, rewardor):
         return 
+    
+    def save(self, path):
+        return
+    
+    def load(self, path):
+        return

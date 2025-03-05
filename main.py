@@ -6,6 +6,7 @@ from src.trainer import launch_training
 from src.utils import *
 import importlib
 
+#--------------- Profile Selection ---------------#
 # List available profiles
 profiles = [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d))]
 print("Available profiles:")
@@ -24,10 +25,7 @@ except Exception as e:
     print(f"Error loading profile '{profile}': {str(e)}")
     exit(1)
 
-# Instantiate the loader
-loader = profile_module.Loader()
-generator, rewardor, simulation = loader.load()
-
+#--------------- Out Paths ---------------#
 # Setup the out folders (outputs, videos)
 out_path = os.path.join("out", profile)
 outputs_path = os.path.join(out_path, "outputs")
@@ -56,6 +54,10 @@ pairs_path = os.path.join(out_path, "pairs.csv")
 if not os.path.exists(pairs_path):
     with open(pairs_path, "w") as f:
         f.write("param1,param2,winner\n")
+
+#--------------- Loading ---------------#
+loader = profile_module.Loader()
+generator, rewardor, simulation = loader.load(out_paths)
 
 #-------- Menu System --------#
 def print_menu():

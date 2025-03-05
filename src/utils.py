@@ -7,7 +7,7 @@ class Loader:
     Abstract Loader class to load a Generator, a Rewardor and a Simulation
     It is expected to be also named Loader.
     """
-    def load(self):
+    def load(self, out_paths):
         """
         Load the generator, rewardor and simulation
         """
