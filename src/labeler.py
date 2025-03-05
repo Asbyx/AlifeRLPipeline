@@ -87,12 +87,14 @@ class VideoLabelerApp:
         self.keybindings_frame.pack(side="left", padx=10, pady=10)
 
         # Add a label to display keybindings
-        self.keybindings_label = tk.Label(self.keybindings_frame, text="Keybindings:\nLeft Arrow: Left Wins\nRight Arrow: Right Wins", justify="left")
+        self.keybindings_label = tk.Label(self.keybindings_frame, text="Keybindings:\nLeft Arrow: Left Wins\nRight Arrow: Right Wins\nSpace: Restart Videos\nBackspace: Previous Pair", justify="left")
         self.keybindings_label.pack()
 
     def bind_keys(self):
         self.master.bind('<Left>', lambda event: self.left_wins())
         self.master.bind('<Right>', lambda event: self.right_wins())
+        self.master.bind('<space>', lambda event: self.restart_videos())
+        self.master.bind('<BackSpace>', lambda event: self.previous_pair())
 
     def show_pair(self):
         if self.current_pair_index < len(self.unranked_pairs):
@@ -211,3 +213,14 @@ class VideoLabelerApp:
         # Destroy the window and quit
         self.master.destroy()
         self.master.quit()
+
+    def restart_videos(self):
+        if hasattr(self, 'left_cap') and hasattr(self, 'right_cap'):
+            self.left_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.right_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.update_frames()
+
+    def previous_pair(self):
+        if self.current_pair_index > 0:
+            self.current_pair_index -= 1
+            self.show_pair()
