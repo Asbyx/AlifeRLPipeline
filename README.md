@@ -14,11 +14,4 @@ Then, by running the main, the full pipeline is launched and the training starts
 # WIP
 - Labeler: 
     - display rewardor scores
-    - display training state
     - display % of labeling
-- Training:
-    - Must be launchable in a separated thread from the labeling window
-    - Simply calls "rewardor.train()"
-    - Use the ranked pairs
-    - Uppon end of training, new pairs are generated and displayed to user
-    

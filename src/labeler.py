@@ -6,9 +6,16 @@ import cv2
 from PIL import Image, ImageTk
 from tkinter import ttk
 
-def launch_video_labeler(simulation, pairs_path, out_paths, verbose=True):
+def launch_video_labeler(simulation, pairs_path, out_paths, verbose=False):
     """
     Launch the video labeler app.
+    
+    Args:
+        simulation: Simulation object that will be used for generating pairs
+        pairs_path: Path to the pairs CSV file
+        out_paths: Dictionary containing output paths
+        verbose: Whether to print verbose output
+    
     Note: executes in the main thread.
     """
     root = tk.Tk()
@@ -17,7 +24,7 @@ def launch_video_labeler(simulation, pairs_path, out_paths, verbose=True):
     root.mainloop()
 
 class VideoLabelerApp:
-    def __init__(self, master, simulation, pairs_path, out_paths, verbose=True):
+    def __init__(self, master, simulation, pairs_path, out_paths, verbose=False):
         self.master = master
         self.simulation = simulation
         self.pairs_path = pairs_path
@@ -64,6 +71,13 @@ class VideoLabelerApp:
         self.right_button = tk.Button(self.button_frame, text="Right Wins", command=self.right_wins)
         self.right_button.pack(side="right")
 
+        # Add quit button frame at the bottom
+        self.quit_frame = tk.Frame(self.master)
+        self.quit_frame.pack(pady=10, fill=tk.X)
+        
+        self.quit_button = tk.Button(self.quit_frame, text="Quit", command=self.save_and_exit)
+        self.quit_button.pack(side="right", padx=10)
+
     def bind_keys(self):
         self.master.bind('<Left>', lambda event: self.left_wins())
         self.master.bind('<Right>', lambda event: self.right_wins())
@@ -94,7 +108,6 @@ class VideoLabelerApp:
             self.generate_new_pairs()
 
     def generate_new_pairs(self):
-        # Assuming the simulation object has a method to generate pairs
         self.simulation.generate_pairs(3, self.out_paths, self.pairs_path, verbose=True)
         self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
         self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()]
@@ -170,5 +183,19 @@ class VideoLabelerApp:
         self.show_pair()
 
     def save_and_exit(self):
+        # Release video resources if they exist
+        if hasattr(self, 'left_cap'):
+            self.left_cap.release()
+        if hasattr(self, 'right_cap'):
+            self.right_cap.release()
+        
+        # Save the current state
         self.pairs_df.to_csv(self.pairs_path, index=False)
+        
+        # Cancel any pending after callbacks
+        if self.after_id is not None:
+            self.master.after_cancel(self.after_id)
+        
+        # Destroy the window and quit
+        self.master.destroy()
         self.master.quit()

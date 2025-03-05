@@ -31,6 +31,30 @@ class Rewardor:
         """
         Rank the data. 
         data is in shape: (B, **data), where n is the number of samples, and the rest is for the data outputed by the simulation. 
+
+        Returns a tensor of shape (B, 1), where the i-th element is the reward for the i-th sample.
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    def train(self, pairs_path, out_path):
+        """
+        Train the rewardor
+        It is expected to be trained on the file pairs_path, which is a csv file with the following columns: param1, param2, winner.
+        Beware of null values in the winner column, it is expected to be many of them.
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    def save(self, path):
+        """
+        Save the rewardor to the path.
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    def load(self, path):
+        """
+        Load the rewardor from the path.
+
+        Returns the loaded rewardor.
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
     
@@ -62,52 +86,28 @@ class Simulation:
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    #-------- Built in --------#
     def save_params(self, params, params_path):
         """
         Save the params to the params_path.
-        Returns the path to the saved params.
+        Returns the paths to the saved params.
         """
-        res = []
-        hashs = self.generator.hash_params(params)
-        for i, param in enumerate(params):
-            res.append(os.path.join(params_path, f"{hashs[i]}.pkl"))
-            with open(res[-1], "wb") as f:
-                pk.dump(param, f)
-        return res
+        raise NotImplementedError("Must be implemented in inheriting class.")
 
     def load_params(self, param_path):
         """
         Load the params from the param_path.
         Returns the loaded params.
         """    
-        with open(param_path, "rb") as f:
-            return pk.load(f)
+        raise NotImplementedError("Must be implemented in inheriting class.")
 
     def save_outputs(self, params, outputs, outputs_path):
         """
         Save the outputs to the outputs_path.
         Returns the paths to the saved outputs.
         """
-        hashs = self.generator.hash_params(params)
-        res = []
-        for i, output in enumerate(outputs):
-            res.append(os.path.join(outputs_path, f"{hashs[i]}.pkl"))
-            self.save_output(output, res[-1])
-        return res
+        raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save_videos(self, params, outputs, vids_path):
-        """
-        Generate videos from the outputs.
-        Returns the paths to the videos.
-        """
-        hashs = self.generator.hash_params(params)
-        res = []
-        for i, output in enumerate(outputs):
-            res.append(os.path.join(vids_path, f"{hashs[i]}.mp4"))
-            self.save_video_from_output(output, res[-1])
-        return res
-
+    #-------- Built in --------#
     def generate_pairs(self, nb_params, out_paths, pairs_path, verbose=False):
         """
         Generate pairs of simulations to be ranked.
@@ -153,5 +153,17 @@ class Simulation:
         # Save the updated DataFrame back to the CSV
         pairs_df.to_csv(pairs_path, index=False)
         if verbose: print(f"Pairs saved to {pairs_path}")
+
+    def save_videos(self, params, outputs, vids_path):
+        """
+        Generate videos from the outputs.
+        Returns the paths to the videos.
+        """
+        hashs = self.generator.hash_params(params)
+        res = []
+        for i, output in enumerate(outputs):
+            res.append(os.path.join(vids_path, f"{hashs[i]}.mp4"))
+            self.save_video_from_output(output, res[-1])
+        return res
 
         
