@@ -14,7 +14,6 @@ This pipeline include every steps.
 Then, by running the main, the full pipeline is launched and the training starts.
 
 # WIP
-- Benchmarking
 - Labeler: 
     - put the window at front when launching
     - display rewardor scores

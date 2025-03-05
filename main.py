@@ -75,7 +75,7 @@ def main():
         if choice == "1":
             launch_video_labeler(simulation, pairs_path, out_paths, verbose=False)
         elif choice == "2":
-            launch_benchmarker(simulation, generator, rewardor, out_paths, verbose=False)
+            launch_benchmarker(simulation, generator, rewardor, out_paths)
         elif choice == "3":
             launch_training(generator, rewardor, pairs_path, out_paths)
         elif choice == "4":

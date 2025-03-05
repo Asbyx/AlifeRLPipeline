@@ -24,7 +24,7 @@ class Loader(src.utils.Loader):
         generator = Lenia_Generator(rewardor)
         
         print("Initializing simulation...")
-        simulation = Lenia_Simulation(generator, (3, 400, 400), 0.1, 300)
+        simulation = Lenia_Simulation(generator, (400, 400), 0.1, 300, device=device)
         rewardor.set_simulation(simulation)
         
         return generator, rewardor, simulation

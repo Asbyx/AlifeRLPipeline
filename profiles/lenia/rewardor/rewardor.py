@@ -37,7 +37,7 @@ class Lenia_Rewardor(src.utils.Rewardor):
         Rank the data using the CLIPVIP model.
         
         Args:
-            data: Tensor of shape (B, T, C, H, W) containing video frames
+            data: List of tensors, each of shape (T, C, H, W) containing video frames
             
         Returns:
             Tensor of shape (B,) containing scores for each video
@@ -45,24 +45,33 @@ class Lenia_Rewardor(src.utils.Rewardor):
         torch.cuda.empty_cache()
         self.model.eval()
         with torch.no_grad(), torch.autocast(device_type=self.device):
-            video1, video2 = data
-            # Add batch dimension
-            video1 = video1.unsqueeze(0)
-            video2 = video2.unsqueeze(0)
+            # Add batch dimension to each video
+            videos = [video.unsqueeze(0) for video in data]
 
             # Ensure videos are in the correct format
-            if video1.shape[1] == 3:  # If in format (C,T,H,W)
-                video1 = video1.permute(0,2,1,3,4)  # Convert to (B,T,C,H,W)
-            if video2.shape[1] == 3:  # If in format (C,T,H,W)
-                video2 = video2.permute(0,2,1,3,4)  # Convert to (B,T,C,H,W)
+            for i in range(len(videos)):
+                if videos[i].shape[1] == 3:  # If in format (C,T,H,W)
+                    videos[i] = videos[i].permute(0,2,1,3,4)  # Convert to (B,T,C,H,W)
 
             # Ensure videos are the correct number of frames
-            video1 = video1[:, :self.num_frames]
-            video2 = video2[:, :self.num_frames]
+            videos = [video[:, :self.num_frames] for video in videos]
                 
-            video1 = video1.to(self.device)
-            video2 = video2.to(self.device)
-            scores = self.model(video1), self.model(video2)
+            # Process videos in batches to reduce GPU memory usage
+            batch_size = 4  # Adjust based on available GPU memory
+            scores = []
+            
+            for i in range(0, len(videos), batch_size):
+                batch = videos[i:i+batch_size]
+                # Move batch to device and get scores
+                batch = [video.to(self.device) for video in batch]
+                batch_scores = [self.model(video) for video in batch]
+                scores.extend(batch_scores)
+                
+                # Clear GPU memory after processing batch
+                for video in batch:
+                    video.cpu()
+                torch.cuda.empty_cache()
+
         return scores
 
     def train(self, pairs_path, out_path):

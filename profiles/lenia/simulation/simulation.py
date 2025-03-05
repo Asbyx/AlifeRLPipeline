@@ -14,6 +14,15 @@ class Lenia_Simulation(src.utils.Simulation):
         Simulation class for the Lenia-like automaton.
     """
     def __init__(self, generator, size, dt, run_length, device='cpu'):
+        """
+            Initializes the simulation.
+            Args :
+                generator : Generator
+                size : tuple, (H, W)
+                dt : float, time-step used when computing the evolution of the automaton
+                run_length : int, number of steps to run the simulation
+                device : str, device
+        """
         super().__init__(generator)
         self.size = size
         self.dt = dt
@@ -26,14 +35,18 @@ class Lenia_Simulation(src.utils.Simulation):
             params : list of dict
         """
         # transform the params to expected format for the automaton
+        B = len(params)
         keys = params[0].keys()
         p = {key: torch.stack([torch.tensor(entry[key], device=self.device) for entry in params]) for key in keys}
         p['k_size'] = params[0]['k_size']
         params = p
 
-        automaton = BatchLeniaMC(self.size, self.dt, params, device=self.device)
+        # Initialize the automaton
+        automaton = BatchLeniaMC((B, self.size[0], self.size[1]), self.dt, params, device=self.device)
         B, C, H, W = automaton.state.shape
         outputs = torch.zeros((B, self.run_length, C, H, W), device=self.device)
+
+        # Run the automaton
         for i in range(self.run_length):
             automaton.step()
             outputs[:,i] = 255*automaton.state
@@ -101,7 +114,7 @@ class BatchLeniaMC(DevModule):
         Batched Multi-channel lenia, to run batch_size worlds in parallel !
         Does not support live drawing in pygame, mayble will later.
     """
-    def __init__(self, size, dt, params=None, state_init = None, device='cpu' ):
+    def __init__(self, size, dt, params, state_init = None, device='cpu' ):
         """
             Initializes automaton.  
 
@@ -125,8 +138,7 @@ class BatchLeniaMC(DevModule):
         self.batch = size[0]
         self.h, self.w = size[1:]
         # 0,1,2,3 of the first dimension are the N,W,S,E directions
-        if(params is None):
-            params = gen_batch_params(self.batch)
+
         self.k_size = params['k_size'] # kernel sizes (same for all)
 
         self.register_buffer('state',torch.rand((self.batch,3,self.h,self.w)))
@@ -148,7 +160,7 @@ class BatchLeniaMC(DevModule):
 
         self.norm_weights()
         self.register_buffer('kernel',torch.zeros((self.k_size,self.k_size)))
-        self.kernel = self.compute_kernel() # (3,3,h, w)
+        self.kernel = self.compute_kernel() # (3,3,h,w)
 
 
     def update_params(self, params):
@@ -165,7 +177,7 @@ class BatchLeniaMC(DevModule):
         self.norm_weights()
         self.batch = params['mu'].shape[0] # update batch size
 
-        self.kernel = self.compute_kernel() # (B,3,3,h, w)
+        self.kernel = self.compute_kernel() # (B,3,3,h,w)
 
 
     def norm_weights(self):
@@ -209,7 +221,6 @@ class BatchLeniaMC(DevModule):
         sigma_k = self.sigma_k[..., None, None]# (B,3,3,#of rings,1,1)
 
         K = torch.exp(-((r-mu_k)/sigma_k)**2/2) #(B,3,3,#of rings,k_size,k_size)
-        #print(K.shape)
 
         beta = self.beta[..., None, None] # (B,3,3,#of rings,1,1)
 
