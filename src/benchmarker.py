@@ -28,6 +28,10 @@ class BenchmarkApp:
         self.master.attributes('-topmost', True)
         self.master.attributes('-topmost', False)
 
+        self.master.bind('<space>', lambda event: self.restart_video())
+        self.master.bind('<Left>', lambda event: self.show_previous())
+        self.master.bind('<Right>', lambda event: self.show_next())
+
     def create_widgets(self):
         self.status_label = tk.Label(self.master, text="Initializing...")
         self.status_label.pack(pady=10)
@@ -52,6 +56,9 @@ class BenchmarkApp:
 
         self.next_button = tk.Button(self.button_frame, text="Next", command=self.show_next)
         self.next_button.pack(side="left", padx=5)
+
+        self.restart_button = tk.Button(self.button_frame, text="Restart", command=self.restart_video)
+        self.restart_button.pack(side="left", padx=5)
 
     def run_benchmark(self):
         # Start the benchmarking process in a new thread
@@ -113,6 +120,10 @@ class BenchmarkApp:
         print(f"Video saved to {self.out_paths['saved_simulations']}")
         self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulations']} !")
 
+    def restart_video(self):
+        self.cap.release()
+        self.show_video(self.current_index)
+
     def on_close(self):
         # Release video resources
         if hasattr(self, 'cap'):
@@ -122,9 +133,9 @@ class BenchmarkApp:
         for video_path in self.videos:
             try:
                 os.remove(video_path)
-                print(f"Deleted {video_path}")
             except Exception as e:
                 print(f"Error deleting {video_path}: {e}")
+        print("Deleted all videos")
 
         # Destroy the window
         self.master.destroy()
