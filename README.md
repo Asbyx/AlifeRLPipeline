@@ -15,6 +15,5 @@ Then, by running the main, the full pipeline is launched and the training starts
 
 # WIP
 - Labeler: 
-    - put the window at front when launching
-    - display rewardor scores
-    - display % of labeling
+    - Propose to wipe existing pairs and regenerate an arbitrary number of pairs
+- Propose to reload everything (after modification for example)

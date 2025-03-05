@@ -39,6 +39,10 @@ class VideoLabelerApp:
         self.master.title("Video Labeler")
         self.create_widgets()
         self.bind_keys()
+        self.master.lift()
+        self.master.focus_force()
+        self.master.attributes('-topmost', True)
+        self.master.attributes('-topmost', False)
         self.show_pair()
 
     def create_widgets(self):

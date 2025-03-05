@@ -5,6 +5,7 @@ from src.utils import Generator, Rewardor, Simulation
 import threading
 import cv2
 from PIL import Image, ImageTk
+import shutil
 
 class BenchmarkApp:
     def __init__(self, master, simulation, generator, rewardor, out_paths):
@@ -22,6 +23,10 @@ class BenchmarkApp:
         self.create_widgets()
         self.run_benchmark()
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.master.lift()
+        self.master.focus_force()
+        self.master.attributes('-topmost', True)
+        self.master.attributes('-topmost', False)
 
     def create_widgets(self):
         self.status_label = tk.Label(self.master, text="Initializing...")
@@ -101,8 +106,12 @@ class BenchmarkApp:
             self.show_video(self.current_index - 1)
 
     def save_video(self):
-        # TODO: Implement saving functionality
-        print(f"Saving video {self.videos[self.current_index]} and params {self.params[self.current_index]}")
+        # Save the video (duplicate the file) and params
+        shutil.copy(self.videos[self.current_index], self.out_paths['saved_simulations'])
+        self.simulation.save_params([self.params[self.current_index]], self.out_paths['saved_simulations'])
+
+        print(f"Video saved to {self.out_paths['saved_simulations']}")
+        self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulations']} !")
 
     def on_close(self):
         # Release video resources

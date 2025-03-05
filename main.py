@@ -33,13 +33,15 @@ videos_path = os.path.join(out_path, "videos")
 params_path = os.path.join(out_path, "params")
 rewardor_path = os.path.join(out_path, "rewardor")
 generator_path = os.path.join(out_path, "generator")
+saved_simulations_path = os.path.join(out_path, "saved_simulations")
 
 out_paths = {
     'outputs': outputs_path,
     'videos': videos_path,
     'params': params_path,
     'rewardor': rewardor_path,
-    'generator': generator_path
+    'generator': generator_path,
+    'saved_simulations': saved_simulations_path,
 }
 
 os.makedirs(out_path, exist_ok=True)
@@ -48,7 +50,7 @@ os.makedirs(videos_path, exist_ok=True)
 os.makedirs(params_path, exist_ok=True)
 os.makedirs(rewardor_path, exist_ok=True)
 os.makedirs(generator_path, exist_ok=True)
-
+os.makedirs(saved_simulations_path, exist_ok=True)
 # Create the pairs.csv file if it does not exist
 pairs_path = os.path.join(out_path, "pairs.csv")
 if not os.path.exists(pairs_path):
