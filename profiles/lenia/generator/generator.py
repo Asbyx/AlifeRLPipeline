@@ -31,7 +31,7 @@ class Lenia_Generator(src.utils.Generator):
             res.append(hash(str(param)))
         return res
 
-    def train(self, rewardor):
+    def train(self, simulation, rewardor):
         return 
     
     def save(self, path):

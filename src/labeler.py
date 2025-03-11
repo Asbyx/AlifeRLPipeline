@@ -5,6 +5,8 @@ from tkinter import messagebox, simpledialog
 import cv2
 from PIL import Image, ImageTk
 from tkinter import ttk
+import random
+import numpy as np
 
 def launch_video_labeler(simulation, pairs_path, out_paths, verbose=False):
     """
@@ -30,10 +32,7 @@ class VideoLabelerApp:
         self.pairs_path = pairs_path
         self.out_paths = out_paths
         self.verbose = verbose
-        self.pairs_df = pd.read_csv(pairs_path, dtype=str)
-        self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()]
-        self.unranked_pairs = self.unranked_pairs.sample(frac=1).reset_index(drop=True)  # Shuffle pairs
-        self.current_pair_index = 0
+        self.load_pairs()
         self.after_id = None
 
         self.master.title("Video Labeler")
@@ -44,6 +43,35 @@ class VideoLabelerApp:
         self.master.attributes('-topmost', True)
         self.master.attributes('-topmost', False)
         self.show_pair()
+
+    def load_pairs(self):
+        """Load pairs from CSV file, filter unranked pairs, and shuffle them."""
+        # Load all pairs from CSV
+        self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
+        self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()]
+        
+        unique_param1 = self.unranked_pairs['param1'].unique()
+        unique_param2 = self.unranked_pairs['param2'].unique()
+        param1_values = np.tile(unique_param1, len(unique_param2))
+        param2_values = np.repeat(unique_param2, len(unique_param1))
+        
+        # Shuffle param2 values while maintaining the structure
+        param2_indices = np.arange(len(param2_values))
+        np.random.shuffle(param2_indices)
+        shuffled_param2 = param2_values[param2_indices]
+        
+        self.unranked_pairs = pd.DataFrame({
+            'param1': param1_values,
+            'param2': shuffled_param2,
+            'winner': np.nan
+        })
+
+        # get rid of pairs that are the same
+        self.unranked_pairs = self.unranked_pairs[self.unranked_pairs['param1'] != self.unranked_pairs['param2']]
+        self.unranked_pairs = self.unranked_pairs.drop_duplicates(subset=['param1', 'param2'])
+        
+        self.unranked_pairs = self.unranked_pairs.reset_index(drop=True)
+        self.current_pair_index = 0
 
     def create_widgets(self):
         self.video_frame = tk.Frame(self.master)
@@ -118,8 +146,8 @@ class VideoLabelerApp:
             self.prompt_generate_new_pairs()
 
     def prompt_generate_new_pairs(self):
-        if messagebox.askyesno("Generate New Pairs", "No more unranked pairs. Would you like to generate new pairs?"):
-            num_pairs = simpledialog.askinteger("Input", "How many pairs do you want to generate?", minvalue=1)
+        if messagebox.askyesno("Generate New Pairs", "No more unranked pairs. Would you like to generate new simulations?"):
+            num_pairs = simpledialog.askinteger("Input", "How many simulations do you want to generate?", minvalue=1)
             if num_pairs is not None:
                 self.generate_new_pairs(num_pairs)
         else:
@@ -127,10 +155,7 @@ class VideoLabelerApp:
 
     def generate_new_pairs(self, num_pairs):
         self.simulation.generate_pairs(num_pairs, self.out_paths, self.pairs_path, verbose=True)
-        self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
-        self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()]
-        self.unranked_pairs = self.unranked_pairs.sample(frac=1).reset_index(drop=True)  # Shuffle pairs
-        self.current_pair_index = 0
+        self.load_pairs()
         self.show_pair()
 
     def play_videos(self):
