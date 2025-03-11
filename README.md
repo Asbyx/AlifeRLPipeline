@@ -17,4 +17,6 @@ Then, by running the main, the full pipeline is launched and the training starts
 - generation des pairs: on veut prioriser le nombre de simulations vues plutot que le nombre de pairs (du coup le shuffle doit pas être aléatoire, on doit voir au moins 1 fois chaque simulation)
 - Labeler: 
     - Propose to wipe existing pairs and regenerate an arbitrary number of pairs
+    - During the pairs generation, make a loading screen 
 - Propose to reload everything (after modification for example)
+- Profile downloading and sharing

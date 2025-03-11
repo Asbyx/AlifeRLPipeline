@@ -1,6 +1,6 @@
 .old/
 out/
-pyrightconfig.json
+alifehub/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
