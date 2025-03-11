@@ -127,27 +127,47 @@ class Simulation:
         raise NotImplementedError("Must be implemented in inheriting class.")
 
     #-------- Built in --------#
-    def generate_pairs(self, nb_params, out_paths, pairs_path, verbose=False):
+    def generate_pairs(self, nb_params, out_paths, pairs_path, verbose=False, progress_callback=None):
         """
         Generate pairs of simulations to be ranked.
         Add the new simulations to the pairs.csv for all possible pairs, including existing ones.
+        
+        Args:
+            nb_params: Number of parameters to generate
+            out_paths: Dictionary containing output paths
+            pairs_path: Path to the pairs CSV file
+            verbose: Whether to print verbose output
+            progress_callback: Optional callback function to report progress
+                              Should accept a message string and return True to continue, False to cancel
         """
+        # Helper function to report progress
+        def report_progress(message):
+            if verbose: 
+                print(message)
+            if progress_callback:
+                progress_callback(message)
+        
+        # Generate parameters
+        report_progress("Generating parameters...")
         params = self.generator.generate(nb_params)
-        if verbose: print(f"Generated {nb_params} parameters.")
 
+        # Run simulations
+        report_progress("Running simulations...")
         outputs = self.run(params)
-        if verbose: print(f"Ran the simulation for {nb_params} parameters.")
 
+        # Save parameters
+        report_progress("Saving parameters...")
         self.save_params(params, out_paths['params'])
-        if verbose: print(f"Parameters saved to {out_paths['params']}")        
-
+        # Save outputs
+        report_progress("Saving outputs...")
         self.save_outputs(params, outputs, out_paths['outputs'])
-        if verbose: print(f"Outputs saved to {out_paths['outputs']}")
 
+        # Save videos
+        report_progress("Generating and saving videos...")
         self.save_videos(params, outputs, out_paths['videos'])
-        if verbose: print(f"Videos saved to {out_paths['videos']}")
 
         # Load existing pairs from CSV
+        report_progress("Loading existing pairs...")
         if os.path.exists(pairs_path):
             pairs_df = pd.read_csv(pairs_path)
             existing_hashs = set(pairs_df['param1']).union(set(pairs_df['param2']))
@@ -156,22 +176,27 @@ class Simulation:
             existing_hashs = set()
 
         # Generate all possible pairs of new simulations
+        report_progress("Generating new pairs...")
         hashs = self.generator.hash_params(params)
         new_pairs = list(itertools.combinations(hashs, 2))
 
         # Generate pairs with existing simulations
+        report_progress("Combining with existing simulations...")
         for new_hash in hashs:
             for existing_hash in existing_hashs:
                 new_pairs.append((new_hash, existing_hash))
 
         # Add new pairs to the DataFrame
+        report_progress(f"Adding {len(new_pairs)} new pairs...")
         new_pairs_df = pd.DataFrame(new_pairs, columns=['param1', 'param2'])
         new_pairs_df['winner'] = None
         pairs_df = pd.concat([pairs_df, new_pairs_df], ignore_index=True)
 
         # Save the updated DataFrame back to the CSV
+        report_progress("Saving pairs to CSV...")
         pairs_df.to_csv(pairs_path, index=False)
-        if verbose: print(f"Pairs saved to {pairs_path}")
+        
+        return True
 
     def save_videos(self, params, outputs, vids_path):
         """

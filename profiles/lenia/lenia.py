@@ -4,6 +4,7 @@ from profiles.lenia.simulation.simulation import Lenia_Simulation
 import src.utils
 import torch
 import os
+
 class Loader(src.utils.Loader):
     """
         Loader for Lenia.
