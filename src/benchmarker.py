@@ -8,7 +8,17 @@ from PIL import Image, ImageTk
 import shutil
 
 class BenchmarkApp:
-    def __init__(self, master, simulation, generator, rewarder, out_paths):
+    def __init__(self, master: tk.Tk, simulation: Simulation, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
+        """
+        Initialize the benchmarker
+
+        Args:
+            master: The master window
+            simulation: The simulation to use
+            generator: The generator to use
+            rewarder: The rewarder to use
+            out_paths: The paths to the outputs
+        """
         self.master = master
         self.simulation = simulation
         self.generator = generator
@@ -141,7 +151,16 @@ class BenchmarkApp:
         self.master.destroy()
 
 
-def launch_benchmarker(simulation, generator, rewarder, out_paths):
+def launch_benchmarker(simulation: Simulation, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
+    """
+    Launch the benchmarker
+
+    Args:
+        simulation: The simulation to use
+        generator: The generator to use
+        rewarder: The rewarder to use
+        out_paths: The paths to the outputs
+    """
     root = tk.Tk()
     app = BenchmarkApp(root, simulation, generator, rewarder, out_paths)
     root.mainloop()

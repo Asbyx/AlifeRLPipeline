@@ -7,8 +7,9 @@ from PIL import Image, ImageTk
 from tkinter import ttk
 import numpy as np
 import threading
+from src.utils import Simulation
 
-def launch_video_labeler(simulation, pairs_path, out_paths, verbose=False):
+def launch_video_labeler(simulation: Simulation, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
     """
     Launch the video labeler app.
     
@@ -26,12 +27,18 @@ def launch_video_labeler(simulation, pairs_path, out_paths, verbose=False):
     root.mainloop()
 
 class VideoLabelerApp:
-    def __init__(self, master, simulation, pairs_path, out_paths, verbose=False):
+    def __init__(self, master: tk.Tk, simulation: Simulation, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
+        """
+        Initialize the video labeler app
+
+        Args:
+            master: The master window
+            simulation: The simulation to use
+            pairs_path: The path to the pairs CSV file
+            out_paths: The paths to the outputs
+            verbose: Whether to print verbose output
+        """
         self.master = master
-        self.simulation = simulation
-        self.pairs_path = pairs_path
-        self.out_paths = out_paths
-        self.verbose = verbose
         self.load_pairs()
         self.after_id = None
 
