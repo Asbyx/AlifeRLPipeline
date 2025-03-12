@@ -1,133 +1,224 @@
 import os
 import pandas as pd
-import itertools
+import itertools    
+from typing import TYPE_CHECKING, List, Any, Callable
 
-class Loader:
-    """
-    Abstract Loader class to load a Generator, a Rewardor and a Simulation
-    It is expected to be also named Loader.
-    """
-    def load(self, out_paths):
-        """
-        Load the generator, rewardor and simulation
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")    
-    
+if TYPE_CHECKING:
+    from src.utils import Simulation, Rewarder
 
 class Generator:
-    """Abstract Generator class for generating parameters for a alife model"""
-    def generate(self, nb_params):
+    """
+    Abstract Generator class for generating parameters for an alife simulation
+    Parameters are anything that can be used to configure the simulation.
+
+    For example, for a cellular automaton, the parameters could be the initial state of the grid, or the neighborhood function.
+    """
+
+    def generate(self, nb_params: int) -> list:
         """
-        Generate some parameters
-        The result must be a list of anything, of length nb_params.
+        Generate some parameters for the simulation.
+        
+        Args:
+            nb_params: Number of different parameters to generate
+
+        Returns:
+            A list of parameters, of length nb_params. The parameters themselfs can be anything.
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def train(self, simulation, rewardor):
-        """Train the model using the rewardor"""
+    def train(self, simulation: "Simulation", rewarder: "Rewarder") -> None:
+        """
+        Train the generator using the rewarder
+
+        Args:
+            simulation: Simulation for which the generator is trained
+            rewarder: Rewarder to train with
+        """
         raise NotImplementedError("Must be implemented in inheriting class.")
     
-    def hash_params(self, params):
-        """Hash a list of parameters"""
+    def save(self, path: str) -> None:
+        """
+        Save the generator to the path
+
+        Args:
+            path: Path to save the generator to
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    def load(self, path: str) -> "Generator":
+        """
+        Load the generator from the path
+
+        Args:
+            path: Path to load the generator from
+
+        Returns:
+            The loaded generator
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    def hash_params(self, params: list) -> list:
+        """
+        Hash a list of parameters.
+        
+        Note: the parameters are expected to be hashable. If not, this function is expected to be overriden in the inheriting class.
+
+        Args:
+            params: List of parameters to hash
+
+        Returns:
+            A list of hashes of the parameters
+        """
         res = []
         for param in params:
             res.append(hash(param))
         return res
 
-    def save(self, path):
-        """Save the generator to the path"""
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    def load(self, path):
-        """Load the generator from the path"""
-        raise NotImplementedError("Must be implemented in inheriting class.")
 
 
-
-class Rewardor:
-    """Abstract Rewardor class for estimating the reward"""
-    def rank(self, data):
+class Rewarder:
+    """
+    Abstract Rewarder class for estimating the reward
+    It is expected to be trained on a dataset of pairs of simulations, with the winner of each pair, and be used to train a Generator.
+    """
+    def rank(self, data: List[Any]) -> List[float]:
         """
         Rank the data. 
-        data is in shape: (B, **data), where n is the number of samples, and the rest is for the data outputed by the simulation. 
+        
+        Args:
+            data: Data to rank, array-like of outputs of a Simulation.
 
-        Returns a tensor of shape (B, 1), where the i-th element is the reward for the i-th sample.
+        Returns:
+            An array-like of the same length as data, where the i-th element is the reward for the i-th sample.
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def train(self, pairs_path, out_path):
+    def train(self, pairs_path: str, out_path: str) -> None:
         """
-        Train the rewardor
-        It is expected to be trained on the file pairs_path, which is a csv file with the following columns: param1, param2, winner.
-        Beware of null values in the winner column, it is expected to be many of them.
+        Train the rewarder on the pairs in pairs_path, and save the trained rewarder to out_path.
+
+        Args:
+            pairs_path: Path to the pairs CSV file
+            out_path: Path to save the trained rewarder to
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save(self, path):
+    def save(self, path: str) -> None:
         """
-        Save the rewardor to the path.
+        Save the rewarder to the path.
+
+        Args:
+            path: Path to the file to save the rewarder to
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def load(self, path):
+    def load(self, path: str) -> "Rewarder":
         """
-        Load the rewardor from the path.
+        Load the rewarder from the path.
 
-        Returns the loaded rewardor.
+        Args:
+            path: Path to the rewarder file
+
+        Returns:
+            The loaded rewarder
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
     
 
 
 class Simulation:
-    """Abstract Simulation class for the alife model"""
+    """
+    Abstract Simulation class for the alife model
+    
+    It is expected to be able to run a simulation with parameters generated by a Generator.
+    Parameters are anything that can be used to configure the simulation.
 
-    def __init__(self, generator):
+    For example, for a cellular automaton, the parameters could be the initial state of the grid, or the neighborhood function.
+    """
+
+    def __init__(self, generator: Generator):
+        """
+        Initialize the simulation with a generator.
+
+        Args:
+            generator: Generator to use for generating parameters
+        """
         self.generator = generator
 
     #-------- To implement --------#
-    def run(self, params):
+    def run(self, params: List[Any]) -> List[Any]:
         """
         Run the simulation with the given parameters.
-        The outputs must be viewable by the Rewardor.
+        The outputs must be viewable by the Rewarder.
+
+        Args:
+            params: Parameters to run the simulation with
+
+        Returns:
+            The outputs of the simulation
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save_output(self, output, output_path):
+    def save_output(self, output: Any, path: str) -> str:
         """
-        Save the output to the output_path.
+        Save the output to the path.
+
+        Args:
+            output: Output to save
+            path: Path to the file to save the output to. The path is the path to the file to save the output to, only the extension is expected to be specified by the user.
+
+        Returns:
+            The path to the saved output
+
+        Example usage:
+            save_output(output, "out/profile/outputs/output_number1")
+            It is expected that the output will be saved in "out/profile/outputs/output_number1<extension chosen by the user>"
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save_video_from_output(self, output, vid_path):
+    def save_video_from_output(self, output: Any, path: str) -> None:
         """
-        Convert the output to a video and save it at vid_path.
+        Convert the output to a video and save it at path.
+        It is important that the video is a .mp4 file !
+
+
+        Args:
+            output: Output to save
+            path: Path to the file to save the video to
+
+        Example usage:
+            save_video_from_output(output, "out/profile/videos/video_number1.mp4")
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save_params(self, params, params_path):
+    def save_param(self, param: Any, path: str) -> str:
         """
-        Save the params to the params_path.
-        Returns the paths to the saved params.
+        Save the param to the path.
+        
+        Args:
+            param: Parameters of a simulation to save
+            path: Path to the file to save the parameter to. The path is the path to the file to save the parameter to, only the extension is expected to be specified by the user.
+        
+        Example usage:
+            save_param(param, "out/profile/params/param_number1")
+            It is expected that the param will be saved in "out/profile/params/param_number1<extension chosen by the user>"
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def load_params(self, param_path):
+    def load_param(self, path: str) -> Any:
         """
-        Load the params from the param_path.
-        Returns the loaded params.
+        Load the param from the path.
+
+        Args:
+            path: Path to the file to load the parameter from. The path is the path to the file to load the parameter from. No need to specify the extension.
+
+        Returns:
+            The loaded parameter
         """    
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save_outputs(self, params, outputs, outputs_path):
-        """
-        Save the outputs to the outputs_path.
-        Returns the paths to the saved outputs.
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
     #-------- Built in --------#
-    def generate_pairs(self, nb_params, out_paths, pairs_path, verbose=False, progress_callback=None):
+    def generate_pairs(self, nb_params: int, out_paths: dict, pairs_path: str, verbose: bool = False, progress_callback: Callable[[str], bool] = None) -> bool:
         """
         Generate pairs of simulations to be ranked.
         Add the new simulations to the pairs.csv for all possible pairs, including existing ones.
@@ -150,6 +241,7 @@ class Simulation:
         # Generate parameters
         report_progress("Generating parameters...")
         params = self.generator.generate(nb_params)
+        hashs = self.generator.hash_params(params)
 
         # Run simulations
         report_progress("Running simulations...")
@@ -157,14 +249,14 @@ class Simulation:
 
         # Save parameters
         report_progress("Saving parameters...")
-        self.save_params(params, out_paths['params'])
+        self.save_params(hashs, params, out_paths['params'])
         # Save outputs
         report_progress("Saving outputs...")
-        self.save_outputs(params, outputs, out_paths['outputs'])
+        self.save_outputs(hashs, outputs, out_paths['outputs'])
 
         # Save videos
         report_progress("Generating and saving videos...")
-        self.save_videos(params, outputs, out_paths['videos'])
+        self.save_videos(hashs, outputs, out_paths['videos'])
 
         # Load existing pairs from CSV
         report_progress("Loading existing pairs...")
@@ -177,7 +269,6 @@ class Simulation:
 
         # Generate all possible pairs of new simulations
         report_progress("Generating new pairs...")
-        hashs = self.generator.hash_params(params)
         new_pairs = list(itertools.combinations(hashs, 2))
 
         # Generate pairs with existing simulations
@@ -195,19 +286,78 @@ class Simulation:
         # Save the updated DataFrame back to the CSV
         report_progress("Saving pairs to CSV...")
         pairs_df.to_csv(pairs_path, index=False)
-        
         return True
 
-    def save_videos(self, params, outputs, vids_path):
+    def save_videos(self, hashs: List[str], outputs: List[Any], vids_path: str) -> List[str]:
         """
-        Generate videos from the outputs.
-        Returns the paths to the videos.
+        Save videos from the outputs.
+
+        Args:
+            hashs: Hashes of the para   meters
+            outputs: Outputs to save
+            vids_path: Path to the videos folder
+
+        Returns:
+            The paths to the saved videos
         """
-        hashs = self.generator.hash_params(params)
         res = []
         for i, output in enumerate(outputs):
             res.append(os.path.join(vids_path, f"{hashs[i]}.mp4"))
             self.save_video_from_output(output, res[-1])
         return res
 
-        
+    def save_outputs(self, hashs: List[str], outputs: List[Any], outputs_path: str) -> List[str]:
+        """
+        Save the outputs to the path.
+
+        Args:
+            hashs: Hashes of the parameters
+            outputs: Outputs to save
+            outputs_path: Path to the outputs folder
+
+        Returns:
+            The paths to the saved outputs
+        """
+        res = []
+        for i, output in enumerate(outputs):
+            path = os.path.join(outputs_path, f"{hashs[i]}")
+            res.append(self.save_output(output, path))
+        return res
+
+    def save_params(self, hashs: List[str], params: List[Any], path: str) -> List[str]:
+        """
+        Save the parameters to the path.
+
+        Args:
+            hashs: Hashes of the parameters
+            params: Parameters to save
+            path: Path to the parameters folder
+
+        Returns:
+            The paths to the saved parameters
+        """
+        res = []
+        for i, param in enumerate(params):
+            path = os.path.join(path, f"{hashs[i]}")
+            res.append(self.save_param(param, path))
+        return res
+
+class Loader:
+    """
+    Abstract Loader class to load a Generator, a Rewarder and a Simulation
+    It is expected to be also named Loader.
+    """
+    def load(self, out_paths: dict) -> tuple[Generator, Rewarder, Simulation]:
+        """
+        Load the generator, rewarder and simulation
+
+        Args:
+            out_paths: Dictionary containing: 
+                - 'outputs': path to the outputs folder,
+                - 'videos': path to the videos folder,
+                - 'params': path to the params folder,
+                - 'rewarder': path to the rewarders folder,
+                - 'generator': path to the generators folder,
+                - 'saved_simulations': path to the saved simulations folder,
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")

@@ -31,7 +31,7 @@ out_path = os.path.join("out", profile)
 outputs_path = os.path.join(out_path, "outputs")
 videos_path = os.path.join(out_path, "videos")
 params_path = os.path.join(out_path, "params")
-rewardor_path = os.path.join(out_path, "rewardor")
+rewarder_path = os.path.join(out_path, "rewarder")
 generator_path = os.path.join(out_path, "generator")
 saved_simulations_path = os.path.join(out_path, "saved_simulations")
 
@@ -39,7 +39,7 @@ out_paths = {
     'outputs': outputs_path,
     'videos': videos_path,
     'params': params_path,
-    'rewardor': rewardor_path,
+    'rewarder': rewarder_path,
     'generator': generator_path,
     'saved_simulations': saved_simulations_path,
 }
@@ -48,7 +48,7 @@ os.makedirs(out_path, exist_ok=True)
 os.makedirs(outputs_path, exist_ok=True)
 os.makedirs(videos_path, exist_ok=True)
 os.makedirs(params_path, exist_ok=True)
-os.makedirs(rewardor_path, exist_ok=True)
+os.makedirs(rewarder_path, exist_ok=True)
 os.makedirs(generator_path, exist_ok=True)
 os.makedirs(saved_simulations_path, exist_ok=True)
 # Create the pairs.csv file if it does not exist
@@ -59,13 +59,13 @@ if not os.path.exists(pairs_path):
 
 #--------------- Loading ---------------#
 loader = profile_module.Loader()
-generator, rewardor, simulation = loader.load(out_paths)
+generator, rewarder, simulation = loader.load(out_paths)
 
 #-------- Menu System --------#
 def print_menu():
     print("\nAlifeHub - Main Menu")
     print("1. Label videos (needs GUI)")
-    print("2. Benchmark rewardor (needs GUI)")
+    print("2. Benchmark rewarder (needs GUI)")
     print("3. Launch training")
     print("4. Exit")
     return input("Please choose an option (1-4): ")
@@ -77,9 +77,9 @@ def main():
         if choice == "1":
             launch_video_labeler(simulation, pairs_path, out_paths, verbose=False)
         elif choice == "2":
-            launch_benchmarker(simulation, generator, rewardor, out_paths)
+            launch_benchmarker(simulation, generator, rewarder, out_paths)
         elif choice == "3":
-            launch_training(generator, rewardor, simulation, pairs_path, out_paths)
+            launch_training(generator, rewarder, simulation, pairs_path, out_paths)
         elif choice == "4":
             print("Exiting AlifeHub...")
             break

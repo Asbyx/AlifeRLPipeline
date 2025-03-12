@@ -5,11 +5,11 @@ class Lenia_Generator(src.utils.Generator):
     """
         Generator class for Lenia
     """
-    def __init__(self, rewardor):
+    def __init__(self, rewarder):
         super().__init__()
-        self.rewardor = rewardor
+        self.rewarder = rewarder
         
-    def generate(self, nb_params): # TODO: Use rewardor as filter (generate 10 times more and filter)
+    def generate(self, nb_params): # TODO: Use rewarder as filter (generate 10 times more and filter)
         """
             Generates nb parameters for the simulation.
         """
@@ -31,7 +31,7 @@ class Lenia_Generator(src.utils.Generator):
             res.append(hash(str(param)))
         return res
 
-    def train(self, simulation, rewardor):
+    def train(self, simulation, rewarder):
         return 
     
     def save(self, path):

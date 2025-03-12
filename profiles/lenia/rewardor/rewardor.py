@@ -5,13 +5,13 @@ import pandas as pd
 import os
 import torchvision.models as models
 
-class Lenia_Rewardor(src.utils.Rewardor):
+class Lenia_Rewarder(src.utils.Rewarder):
     """
-    A Rewardor implementation that uses a simplified CLIPVIP model to rank Lenia simulations.
+    A Rewarder implementation that uses a simplified CLIPVIP model to rank Lenia simulations.
     """
     def __init__(self, num_frames=12, minihead=True, device='cpu'):
         """
-        Initialize the CLIPVIP-based rewardor.
+        Initialize the CLIPVIP-based rewarder.
         
         Args:
             num_frames: Number of frames to process
@@ -76,7 +76,7 @@ class Lenia_Rewardor(src.utils.Rewardor):
 
     def train(self, pairs_path, out_path):
         """
-        Train the rewardor using paired comparisons.
+        Train the rewarder using paired comparisons.
         
         Args:
             pairs_path: Path to CSV file containing paired comparisons
@@ -162,7 +162,7 @@ class Lenia_Rewardor(src.utils.Rewardor):
         Args:
             path: Path to save the model state
         """
-        self.model.save_weights(path+"/rewardor.pth")
+        self.model.save_weights(path+"/rewarder.pth")
 
     def load(self, path):
         """
@@ -171,7 +171,7 @@ class Lenia_Rewardor(src.utils.Rewardor):
         Args:
             path: Path to load the model state from
         """
-        self.model.load_weights(path+"/rewardor.pth") 
+        self.model.load_weights(path+"/rewarder.pth") 
 
 class MiniBlock(nn.Module):
     """A simple transformer-style block for processing sequences"""

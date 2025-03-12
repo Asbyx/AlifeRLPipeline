@@ -1,18 +1,18 @@
 import os
 import tkinter as tk
 from tkinter import ttk
-from src.utils import Generator, Rewardor, Simulation
+from src.utils import Generator, Rewarder, Simulation
 import threading
 import cv2
 from PIL import Image, ImageTk
 import shutil
 
 class BenchmarkApp:
-    def __init__(self, master, simulation, generator, rewardor, out_paths):
+    def __init__(self, master, simulation, generator, rewarder, out_paths):
         self.master = master
         self.simulation = simulation
         self.generator = generator
-        self.rewardor = rewardor
+        self.rewarder = rewarder
         self.out_paths = out_paths
         self.scores = []
         self.videos = []
@@ -71,7 +71,7 @@ class BenchmarkApp:
         self.update_status("Running simulations...")
         outputs = self.simulation.run(self.params)
         self.update_status("Scoring simulations...")
-        self.scores = [score.item() for score in self.rewardor.rank(outputs)]
+        self.scores = [score.item() for score in self.rewarder.rank(outputs)]
         self.update_status("Sorting videos...")
         self.videos = self.simulation.save_videos(self.params, outputs, self.out_paths['videos'])
 
@@ -141,7 +141,7 @@ class BenchmarkApp:
         self.master.destroy()
 
 
-def launch_benchmarker(simulation, generator, rewardor, out_paths):
+def launch_benchmarker(simulation, generator, rewarder, out_paths):
     root = tk.Tk()
-    app = BenchmarkApp(root, simulation, generator, rewardor, out_paths)
+    app = BenchmarkApp(root, simulation, generator, rewarder, out_paths)
     root.mainloop()
