@@ -1,7 +1,7 @@
-import src.utils
+import rlhfalife.utils
 from profiles.lenia.main_utils import gen_batch_params
 
-class Lenia_Generator(src.utils.Generator):
+class Lenia_Generator(rlhfalife.utils.Generator):
     """
         Generator class for Lenia
     """
@@ -31,7 +31,7 @@ class Lenia_Generator(src.utils.Generator):
             res.append(hash(str(param)))
         return res
 
-    def train(self, simulation, rewarder):
+    def train(self, simulator, rewarder):
         return 
     
     def save(self, path):

@@ -1,11 +1,11 @@
-import src.utils
+import rlhfalife.utils
 import torch
 import torch.nn as nn
 import pandas as pd
 import os
 import torchvision.models as models
 
-class Lenia_Rewarder(src.utils.Rewarder):
+class Lenia_Rewarder(rlhfalife.utils.Rewarder):
     """
     A Rewarder implementation that uses a simplified CLIPVIP model to rank Lenia simulations.
     """
@@ -29,8 +29,8 @@ class Lenia_Rewarder(src.utils.Rewarder):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
         self.num_frames = num_frames
 
-    def set_simulation(self, simulation):
-        self.simulation = simulation
+    def set_simulator(self, simulator):
+        self.simulator = simulator
     
     def rank(self, data):
         """
@@ -100,8 +100,8 @@ class Lenia_Rewarder(src.utils.Rewarder):
             param2_path = os.path.join(out_path["outputs"], f"{row['param2']}.pkl")
             
             # Load the outputs
-            video1 = self.simulation.load_outputs([param1_path])[0]
-            video2 = self.simulation.load_outputs([param2_path])[0]
+            video1 = self.simulator.load_outputs([param1_path])[0]
+            video2 = self.simulator.load_outputs([param2_path])[0]
 
             # Add batch dimension
             video1 = video1.unsqueeze(0)

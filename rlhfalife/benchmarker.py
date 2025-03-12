@@ -1,26 +1,26 @@
 import os
 import tkinter as tk
 from tkinter import ttk
-from src.utils import Generator, Rewarder, Simulation
+from rlhfalife.utils import Generator, Rewarder, Simulator
 import threading
 import cv2
 from PIL import Image, ImageTk
 import shutil
 
 class BenchmarkApp:
-    def __init__(self, master: tk.Tk, simulation: Simulation, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
+    def __init__(self, master: tk.Tk, simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
         """
         Initialize the benchmarker
 
         Args:
             master: The master window
-            simulation: The simulation to use
+            simulator: The simulator to use
             generator: The generator to use
             rewarder: The rewarder to use
             out_paths: The paths to the outputs
         """
         self.master = master
-        self.simulation = simulation
+        self.simulator = simulator
         self.generator = generator
         self.rewarder = rewarder
         self.out_paths = out_paths
@@ -78,12 +78,12 @@ class BenchmarkApp:
         self.update_status("Generating parameters...")
         self.params = self.generator.generate(10)
 
-        self.update_status("Running simulations...")
-        outputs = self.simulation.run(self.params)
-        self.update_status("Scoring simulations...")
+        self.update_status("Running simulators...")
+        outputs = self.simulator.run(self.params)
+        self.update_status("Scoring simulators...")
         self.scores = [score.item() for score in self.rewarder.rank(outputs)]
         self.update_status("Sorting videos...")
-        self.videos = self.simulation.save_videos(self.params, outputs, self.out_paths['videos'])
+        self.videos = self.simulator.save_videos(self.params, outputs, self.out_paths['videos'])
 
         # Sort videos by score
         sorted_videos = sorted(zip(self.scores, self.videos, self.params), key=lambda x: x[0], reverse=True)
@@ -124,11 +124,11 @@ class BenchmarkApp:
 
     def save_video(self):
         # Save the video (duplicate the file) and params
-        shutil.copy(self.videos[self.current_index], self.out_paths['saved_simulations'])
-        self.simulation.save_params([self.params[self.current_index]], self.out_paths['saved_simulations'])
+        shutil.copy(self.videos[self.current_index], self.out_paths['saved_simulators'])
+        self.simulator.save_params([self.params[self.current_index]], self.out_paths['saved_simulators'])
 
-        print(f"Video saved to {self.out_paths['saved_simulations']}")
-        self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulations']} !")
+        print(f"Video saved to {self.out_paths['saved_simulators']}")
+        self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulators']} !")
 
     def restart_video(self):
         self.cap.release()
@@ -151,16 +151,16 @@ class BenchmarkApp:
         self.master.destroy()
 
 
-def launch_benchmarker(simulation: Simulation, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
+def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
     """
     Launch the benchmarker
 
     Args:
-        simulation: The simulation to use
+        simulator: The simulator to use
         generator: The generator to use
         rewarder: The rewarder to use
         out_paths: The paths to the outputs
     """
     root = tk.Tk()
-    app = BenchmarkApp(root, simulation, generator, rewarder, out_paths)
+    app = BenchmarkApp(root, simulator, generator, rewarder, out_paths)
     root.mainloop()

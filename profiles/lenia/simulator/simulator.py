@@ -1,26 +1,26 @@
-import src.utils
+import rlhfalife.utils
 import torch
 import os
 import pickle as pk
 import numpy as np
 from torchenhanced import DevModule
 from showtens import save_video
-from profiles.lenia.simulation.noise_gen import perlin, perlin_fractal
+from profiles.lenia.simulator.noise_gen import perlin, perlin_fractal
 from profiles.lenia.main_utils import gen_batch_params
 import torch.nn.functional as F
 
-class Lenia_Simulation(src.utils.Simulation):
+class Lenia_Simulator(rlhfalife.utils.Simulator):
     """
-        Simulation class for the Lenia-like automaton.
+        Simulator class for the Lenia-like automaton.
     """
     def __init__(self, generator, size, dt, run_length, device='cpu'):
         """
-            Initializes the simulation.
+            Initializes the simulator.
             Args :
                 generator : Generator
                 size : tuple, (H, W)
                 dt : float, time-step used when computing the evolution of the automaton
-                run_length : int, number of steps to run the simulation
+                run_length : int, number of steps to run the simulator
                 device : str, device
         """
         super().__init__(generator)
@@ -31,7 +31,7 @@ class Lenia_Simulation(src.utils.Simulation):
         
     def run(self, params):
         """
-            Runs the simulation with the given parameters.
+            Runs the simulator with the given parameters.
             params : list of dict
         """
         # transform the params to expected format for the automaton

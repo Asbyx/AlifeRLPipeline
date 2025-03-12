@@ -1,9 +1,8 @@
 import os
-import torch
-from src.labeler import launch_video_labeler
-from src.benchmarker import launch_benchmarker
-from src.trainer import launch_training
-from src.utils import *
+from rlhfalife.labeler import launch_video_labeler
+from rlhfalife.benchmarker import launch_benchmarker
+from rlhfalife.trainer import launch_training
+from rlhfalife.utils import *
 import importlib
 
 #--------------- Profile Selection ---------------#
@@ -18,9 +17,7 @@ profile_file_path = os.path.join("profiles", profile, f"{profile}.py")
 
 # Load the module dynamically
 try:
-    spec = importlib.util.spec_from_file_location(profile, profile_file_path)
-    profile_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(profile_module)
+    profile_module = __import__(f"profiles.{profile}", fromlist=[profile])
 except Exception as e:
     print(f"Error loading profile '{profile}': {str(e)}")
     exit(1)
@@ -59,7 +56,7 @@ if not os.path.exists(pairs_path):
 
 #--------------- Loading ---------------#
 loader = profile_module.Loader()
-generator, rewarder, simulation = loader.load(out_paths)
+generator, rewarder, simulator = loader.load(out_paths)
 
 #-------- Menu System --------#
 def print_menu():
@@ -75,11 +72,11 @@ def main():
         choice = print_menu()
         
         if choice == "1":
-            launch_video_labeler(simulation, pairs_path, out_paths, verbose=False)
+            launch_video_labeler(simulator, pairs_path, out_paths, verbose=False)
         elif choice == "2":
-            launch_benchmarker(simulation, generator, rewarder, out_paths)
+            launch_benchmarker(simulator, generator, rewarder, out_paths)
         elif choice == "3":
-            launch_training(generator, rewarder, simulation, pairs_path, out_paths)
+            launch_training(generator, rewarder, simulator, pairs_path, out_paths)
         elif choice == "4":
             print("Exiting AlifeHub...")
             break

@@ -7,14 +7,14 @@ from PIL import Image, ImageTk
 from tkinter import ttk
 import numpy as np
 import threading
-from src.utils import Simulation
+from rlhfalife.utils import Simulator
 
-def launch_video_labeler(simulation: Simulation, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
+def launch_video_labeler(simulator: Simulator, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
     """
     Launch the video labeler app.
     
     Args:
-        simulation: Simulation object that will be used for generating pairs
+        simulator: Simulator object that will be used for generating pairs
         pairs_path: Path to the pairs CSV file
         out_paths: Dictionary containing output paths
         verbose: Whether to print verbose output
@@ -22,22 +22,27 @@ def launch_video_labeler(simulation: Simulation, pairs_path: str, out_paths: dic
     Note: executes in the main thread.
     """
     root = tk.Tk()
-    app = VideoLabelerApp(root, simulation, pairs_path, out_paths, verbose)
+    app = VideoLabelerApp(root, simulator, pairs_path, out_paths, verbose)
     root.protocol("WM_DELETE_WINDOW", app.save_and_exit)
     root.mainloop()
 
 class VideoLabelerApp:
-    def __init__(self, master: tk.Tk, simulation: Simulation, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
+    def __init__(self, master: tk.Tk, simulator: Simulator, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
         """
         Initialize the video labeler app
 
         Args:
             master: The master window
-            simulation: The simulation to use
+            simulator: The simulator to use
             pairs_path: The path to the pairs CSV file
             out_paths: The paths to the outputs
             verbose: Whether to print verbose output
         """
+        self.simulator = simulator
+        self.pairs_path = pairs_path
+        self.out_paths = out_paths
+        self.verbose = verbose
+        
         self.master = master
         self.load_pairs()
         self.after_id = None
@@ -171,20 +176,20 @@ class VideoLabelerApp:
             self.prompt_generate_new_pairs()
 
     def prompt_generate_new_pairs(self):
-        if messagebox.askyesno("Generate New Pairs", "No more unranked pairs. Would you like to generate new simulations?"):
-            num_pairs = simpledialog.askinteger("Input", "How many simulations do you want to generate?", minvalue=1)
+        if messagebox.askyesno("Generate New Pairs", "No more unranked pairs. Would you like to generate new simulators?"):
+            num_pairs = simpledialog.askinteger("Input", "How many simulators do you want to generate?", minvalue=1)
             if num_pairs is not None:
                 self.generate_new_pairs(num_pairs)
         else:
             self.save_and_exit()
 
     def generate_new_pairs(self, num_pairs):
-        """Generate new pairs of simulations"""
+        """Generate new pairs of simulators"""
         self.pairs_df.to_csv(self.pairs_path, index=False)
 
         loading_screen = LoadingScreen(self.master)
         loading_screen.run_generation_process(
-            self.simulation, 
+            self.simulator, 
             num_pairs, 
             self.out_paths, 
             self.pairs_path, 
@@ -416,12 +421,12 @@ class LoadingScreen:
         self.window.grab_release()
         self.window.destroy()
         
-    def run_generation_process(self, simulation, num_pairs, out_paths, pairs_path, verbose=False, on_complete=None, on_error=None):
+    def run_generation_process(self, simulator, num_pairs, out_paths, pairs_path, verbose=False, on_complete=None, on_error=None):
         """
         Run the generation process in a separate thread with progress updates
         
         Args:
-            simulation: The simulation object
+            simulator: The simulator object
             num_pairs: Number of pairs to generate
             out_paths: Dictionary of output paths
             pairs_path: Path to the pairs CSV file
@@ -441,7 +446,7 @@ class LoadingScreen:
         # Run the generation in a separate thread
         def run_generation():
             try:
-                success = simulation.generate_pairs(
+                success = simulator.generate_pairs(
                     num_pairs, 
                     out_paths, 
                     pairs_path, 
