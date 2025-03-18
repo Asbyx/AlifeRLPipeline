@@ -142,7 +142,6 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
             accuracy = correct_predictions / (idx + 1) * 100
             if (idx + 1) % 5 == 0:
                 print(f"Loss: {loss.item():.4f} (avg: {avg_loss:.4f})")
-                print(f"Prediction: {pred.item():.4f} (threshold: 0.5)")
                 print(f"Current accuracy: {accuracy:.2f}%")
                 print(f"Completed {idx + 1}/{len(training_dataset)} pairs")
                 print()

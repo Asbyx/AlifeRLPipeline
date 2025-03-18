@@ -1,5 +1,3 @@
-import os
-import pandas as pd
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import cv2
@@ -47,6 +45,8 @@ class VideoLabelerApp:
         
         self.master = master
         self.after_id = None
+        self.cap1 = None
+        self.cap2 = None
 
         self.master.title("Video Labeler")
         self.create_widgets()
@@ -268,9 +268,9 @@ class VideoLabelerApp:
 
     def save_and_exit(self):
         # Release video resources if they exist
-        if hasattr(self, 'cap1'):
+        if self.cap1 is not None:
             self.cap1.release()
-        if hasattr(self, 'cap2'):
+        if self.cap2 is not None:
             self.cap2.release()
         
         # Cancel any pending after callbacks
@@ -288,16 +288,17 @@ class VideoLabelerApp:
         self.master.quit()
 
     def restart_videos(self):
-        if hasattr(self, 'cap1') and hasattr(self, 'cap2'):
+        if self.cap1 is not None:
             self.cap1.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        if self.cap2 is not None:
             self.cap2.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     def previous_pair(self):
         # Release video resources
-        if hasattr(self, 'cap1') and self.cap1 is not None:
+        if self.cap1 is not None:
             self.cap1.release()
             self.cap1 = None
-        if hasattr(self, 'cap2') and self.cap2 is not None:
+        if self.cap2 is not None:
             self.cap2.release()
             self.cap2 = None
         
