@@ -30,10 +30,6 @@ class Lenia_Simulator(rlhfalife.utils.Simulator):
         self.device = device
         
     def run(self, params):
-        """
-            Runs the simulator with the given parameters.
-            params : list of dict
-        """
         # transform the params to expected format for the automaton
         B = len(params)
         keys = params[0].keys()
@@ -51,63 +47,27 @@ class Lenia_Simulator(rlhfalife.utils.Simulator):
             automaton.step()
             outputs[:,i] = 255*automaton.state
         return outputs
-    
-    def save_video_from_output(self, output, vid_path):
-        """
-            Converts an output to a video and saves it at vid_path.
-        """
-        save_video(output, "./", vid_path[:-4])
 
-    def save_output(self, output, output_path):
-        """
-            Saves the output to the output_path.
-            Params must be fully retrievable from the saved file.
-        """
+    def save_output(self, output, path):
+        output_path = f"{path}.pt"
         torch.save(output, output_path)
+        return output_path
 
-    def save_params(self, params, params_path):
-        """
-        Save the params to the params_path.
-        Returns the paths to the saved params.
-        """
-        res = []
-        hashs = self.generator.hash_params(params)
-        for i, param in enumerate(params):
-            res.append(os.path.join(params_path, f"{hashs[i]}.pkl"))
-            with open(res[-1], "wb") as f:
-                pk.dump(param, f)
-        return res
+    def save_video_from_output(self, output, path):
+        save_video(output, os.path.dirname(path), os.path.basename(path)[:-4])
+        return path
 
-    def load_params(self, param_path):
-        """
-        Load the params from the param_path.
-        Returns the loaded params.
-        """    
+    def save_param(self, param, path):
+        param_path = f"{path}.pkl"
+        with open(param_path, "wb") as f:
+            pk.dump(param, f)
+        return param_path
+
+    def load_param(self, path):
+        param_path = f"{path}.pkl"
         with open(param_path, "rb") as f:
             return pk.load(f)
 
-    def save_outputs(self, params, outputs, outputs_path):
-        """
-        Save the outputs to the outputs_path.
-        Returns the paths to the saved outputs.
-        """
-        hashs = self.generator.hash_params(params)
-        res = []
-        for i, output in enumerate(outputs):
-            res.append(os.path.join(outputs_path, f"{hashs[i]}.pkl"))
-            self.save_output(output, res[-1])
-        return res
-
-    def load_outputs(self, output_paths):
-        """
-        Load the outputs from the given paths.
-        Returns a list of loaded outputs.
-        """
-        outputs = []
-        for path in output_paths:
-            with open(path, "rb") as f:
-                outputs.append(torch.load(f))
-        return outputs 
 
 class BatchLeniaMC(DevModule):
     """

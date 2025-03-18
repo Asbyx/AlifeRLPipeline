@@ -1,10 +1,11 @@
 import os
 import pandas as pd
 import itertools    
-from typing import TYPE_CHECKING, List, Any, Callable
+from typing import TYPE_CHECKING, List, Any, Callable, Tuple, Optional
 
 if TYPE_CHECKING:
     from rlhfalife.utils import Simulator, Rewarder
+    from rlhfalife.data_managers import DatasetManager, PairsManager
 
 class Generator:
     """
@@ -14,7 +15,8 @@ class Generator:
     For example, for a cellular automaton, the parameters could be the initial state of the grid, or the neighborhood function.
     """
 
-    def generate(self, nb_params: int) -> list:
+    #-------- To implement --------#
+    def generate(self, nb_params: int) -> List[Any]:
         """
         Generate some parameters for the simulation.
         
@@ -36,28 +38,23 @@ class Generator:
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
     
-    def save(self, path: str) -> None:
+    def save(self) -> None:
         """
         Save the generator to the path
-
-        Args:
-            path: Path to save the generator to
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def load(self, path: str) -> "Generator":
+    def load(self) -> "Generator":
         """
         Load the generator from the path
-
-        Args:
-            path: Path to load the generator from
 
         Returns:
             The loaded generator
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def hash_params(self, params: list) -> list:
+    #-------- Built in --------#
+    def hash_params(self, params: List[Any]) -> List[int]:
         """
         Hash a list of parameters.
         
@@ -69,10 +66,7 @@ class Generator:
         Returns:
             A list of hashes of the parameters
         """
-        res = []
-        for param in params:
-            res.append(hash(param))
-        return res
+        return [hash(param) for param in params]
 
 
 
@@ -81,6 +75,8 @@ class Rewarder:
     Abstract Rewarder class for estimating the reward
     It is expected to be trained on a dataset of pairs of simulations, with the winner of each pair, and be used to train a Generator.
     """
+
+    #-------- To implement --------#
     def rank(self, data: List[Any]) -> List[float]:
         """
         Rank the data. 
@@ -93,31 +89,25 @@ class Rewarder:
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def train(self, pairs_path: str, out_path: str) -> None:
+    def train(self, dataset_manager: "DatasetManager", pairs_manager: "PairsManager") -> None:
         """
-        Train the rewarder on the pairs in pairs_path, and save the trained rewarder to out_path.
+        Train the rewarder on the pairs in pairs_manager
 
         Args:
-            pairs_path: Path to the pairs CSV file
-            out_path: Path to save the trained rewarder to
+            dataset_manager: DatasetManager instance containing the dataset TODO plus simple de faire 1 seul objet non ?
+            pairs_manager: PairsManager instance containing the pairs TODO
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def save(self, path: str) -> None:
+    def save(self) -> None:
         """
-        Save the rewarder to the path.
-
-        Args:
-            path: Path to the file to save the rewarder to
+        Save the rewarder.
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def load(self, path: str) -> "Rewarder":
+    def load(self) -> "Rewarder":
         """
-        Load the rewarder from the path.
-
-        Args:
-            path: Path to the rewarder file
+        Load the rewarder.
 
         Returns:
             The loaded rewarder
@@ -218,15 +208,16 @@ class Simulator:
         raise NotImplementedError("Must be implemented in inheriting class.")
 
     #-------- Built in --------#
-    def generate_pairs(self, nb_params: int, out_paths: dict, pairs_path: str, verbose: bool = False, progress_callback: Callable[[str], bool] = None) -> bool:
+    def generate_pairs(self, nb_params: int, dataset_manager: "DatasetManager", pairs_manager: "PairsManager", 
+                      verbose: bool = False, progress_callback: Callable[[str], bool] = None) -> bool:
         """
         Generate pairs of simulations to be ranked.
         Add the new simulations to the pairs.csv for all possible pairs, including existing ones.
         
         Args:
             nb_params: Number of parameters to generate
-            out_paths: Dictionary containing output paths
-            pairs_path: Path to the pairs CSV file
+            dataset_manager: DatasetManager instance for storing simulation data
+            pairs_manager: PairsManager instance for storing pairs
             verbose: Whether to print verbose output
             progress_callback: Optional callback function to report progress
                               Should accept a message string and return True to continue, False to cancel
@@ -241,7 +232,7 @@ class Simulator:
         # Generate parameters
         report_progress("Generating parameters...")
         params = self.generator.generate(nb_params)
-        hashs = self.generator.hash_params(params)
+        hashs = [str(h) for h in self.generator.hash_params(params)]
 
         # Run simulations
         report_progress("Running simulations...")
@@ -249,23 +240,23 @@ class Simulator:
 
         # Save parameters
         report_progress("Saving parameters...")
-        self.save_params(hashs, params, out_paths['params'])
+        param_paths = self.save_params(hashs, params, dataset_manager.out_paths['params'])
+        
         # Save outputs
         report_progress("Saving outputs...")
-        self.save_outputs(hashs, outputs, out_paths['outputs'])
+        output_paths = self.save_outputs(hashs, outputs, dataset_manager.out_paths['outputs'])
 
         # Save videos
         report_progress("Generating and saving videos...")
-        self.save_videos(hashs, outputs, out_paths['videos'])
+        video_paths = self.save_videos(hashs, outputs, dataset_manager.out_paths['videos'])
 
-        # Load existing pairs from CSV
-        report_progress("Loading existing pairs...")
-        if os.path.exists(pairs_path):
-            pairs_df = pd.read_csv(pairs_path)
-            existing_hashs = set(pairs_df['param1']).union(set(pairs_df['param2']))
-        else:
-            pairs_df = pd.DataFrame(columns=['param1', 'param2', 'winner'])
-            existing_hashs = set()
+        # Add entries to dataset manager
+        report_progress("Adding entries to dataset manager...")
+        dataset_manager.add_entries_from_simulation(hashs, params, outputs, param_paths, output_paths, video_paths)
+
+        # Get all existing hashes from the dataset
+        report_progress("Loading existing hashes...")
+        existing_hashs = dataset_manager.get_all_hashes()
 
         # Generate all possible pairs of new simulations
         report_progress("Generating new pairs...")
@@ -275,17 +266,13 @@ class Simulator:
         report_progress("Combining with existing simulations...")
         for new_hash in hashs:
             for existing_hash in existing_hashs:
-                new_pairs.append((new_hash, existing_hash))
+                if new_hash != existing_hash and (new_hash, existing_hash) not in new_pairs and (existing_hash, new_hash) not in new_pairs:
+                    new_pairs.append((new_hash, existing_hash))
 
-        # Add new pairs to the DataFrame
+        # Add new pairs to the pairs manager
         report_progress(f"Adding {len(new_pairs)} new pairs...")
-        new_pairs_df = pd.DataFrame(new_pairs, columns=['param1', 'param2'])
-        new_pairs_df['winner'] = None
-        pairs_df = pd.concat([pairs_df, new_pairs_df], ignore_index=True)
-
-        # Save the updated DataFrame back to the CSV
-        report_progress("Saving pairs to CSV...")
-        pairs_df.to_csv(pairs_path, index=False)
+        pairs_manager.add_pairs(new_pairs)
+        
         return True
 
     def save_videos(self, hashs: List[str], outputs: List[Any], vids_path: str) -> List[str]:
@@ -338,8 +325,8 @@ class Simulator:
         """
         res = []
         for i, param in enumerate(params):
-            path = os.path.join(path, f"{hashs[i]}")
-            res.append(self.save_param(param, path))
+            param_path = os.path.join(path, f"{hashs[i]}")
+            res.append(self.save_param(param, param_path))
         return res
 
 class Loader:
@@ -361,3 +348,10 @@ class Loader:
                 - 'saved_simulations': path to the saved simulations folder,
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
+
+
+    
+        
+        
+        
+        

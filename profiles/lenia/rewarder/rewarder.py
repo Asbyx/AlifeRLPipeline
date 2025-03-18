@@ -9,7 +9,7 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
     """
     A Rewarder implementation that uses a simplified CLIPVIP model to rank Lenia simulations.
     """
-    def __init__(self, num_frames=12, minihead=True, device='cpu'):
+    def __init__(self, num_frames=12, minihead=True, device='cpu', save_path=None):
         """
         Initialize the CLIPVIP-based rewarder.
         
@@ -17,6 +17,7 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
             num_frames: Number of frames to process
             minihead: Whether to use minihead architecture
             device: Device to run the model on
+            save_path: Path to save/load the model
         """
         super().__init__()
         self.model = CLIPVIPReward(
@@ -28,6 +29,8 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
         self.criterion = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
         self.num_frames = num_frames
+        self.save_path = save_path
+        self.simulator = None
 
     def set_simulator(self, simulator):
         self.simulator = simulator
@@ -74,16 +77,16 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
 
         return scores
 
-    def train(self, pairs_path, out_path):
+    def train(self, dataset_manager, pairs_manager):
         """
         Train the rewarder using paired comparisons.
         
         Args:
-            pairs_path: Path to CSV file containing paired comparisons
+            dataset_manager: DatasetManager instance containing the dataset
+            pairs_manager: PairsManager instance containing the pairs
         """
-        pairs_df = pd.read_csv(pairs_path, dtype='str')
-        # Filter out rows where winner is null
-        pairs_df = pairs_df[pairs_df['winner'].notna()]
+        # Get ranked pairs from the pairs manager
+        pairs_df = pairs_manager._get_ranked_pairs()
         
         print(f"Starting training with {len(pairs_df)} comparison pairs")
         
@@ -96,13 +99,11 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
         
         # Convert pairs to training data
         for idx, row in pairs_df.iterrows():
-            param1_path = os.path.join(out_path["outputs"], f"{row['param1']}.pkl")
-            param2_path = os.path.join(out_path["outputs"], f"{row['param2']}.pkl")
+            hash1 = row['hash1']
+            hash2 = row['hash2']
             
             # Load the outputs
-            video1 = self.simulator.load_outputs([param1_path])[0]
-            video2 = self.simulator.load_outputs([param2_path])[0]
-
+            video1, video2 = dataset_manager.load_outputs([hash1, hash2]) # note: in our case, the outputs are the video
             # Add batch dimension
             video1 = video1.unsqueeze(0)
             video2 = video2.unsqueeze(0)
@@ -120,8 +121,8 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
             video1 = video1.to(self.device)
             video2 = video2.to(self.device)
             
-            # Create labels (1 if param1 won, 0 if param2 won)
-            label = torch.tensor([1.0 if row['winner'] == row['param1'] else 0.0]).to(self.device)
+            # Create labels (1 if hash1 won, 0 if hash2 won)
+            label = torch.tensor([1.0 if row['winner'] == hash1 else 0.0]).to(self.device)
             
             # Train step
             self.optimizer.zero_grad()
@@ -135,7 +136,7 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
             # Track metrics
             total_loss += loss.item()
             predicted_winner = 1 if pred.item() > 0.5 else 0
-            actual_winner = 1 if row['winner'] == row['param1'] else 0
+            actual_winner = 1 if row['winner'] == hash1 else 0
             correct_predictions += (predicted_winner == actual_winner)
             
             loss.backward()
@@ -155,24 +156,13 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
         print(f"Final average loss: {total_loss / len(pairs_df):.4f}")
         print(f"Final accuracy: {(correct_predictions / len(pairs_df)) * 100:.2f}%")
 
-    def save(self, path):
-        """
-        Save the model state to the specified path.
-        
-        Args:
-            path: Path to save the model state
-        """
-        self.model.save_weights(path+"/rewarder.pth")
+    def save(self):
+        self.model.save_weights(self.save_path)
 
-    def load(self, path):
-        """
-        Load the model state from the specified path.
+    def load(self):
+        self.model.load_weights(self.save_path)
+        return self
         
-        Args:
-            path: Path to load the model state from
-        """
-        self.model.load_weights(path+"/rewarder.pth") 
-
 class MiniBlock(nn.Module):
     """A simple transformer-style block for processing sequences"""
     def __init__(self, embed_dim, num_tokens, device='cpu'):

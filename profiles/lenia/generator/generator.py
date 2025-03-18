@@ -32,10 +32,24 @@ class Lenia_Generator(rlhfalife.utils.Generator):
         return res
 
     def train(self, simulator, rewarder):
+        """
+        Train the generator using the rewarder.
+        
+        Args:
+            simulator: Simulator for which the generator is trained
+            rewarder: Rewarder to train with
+        """
+        self.rewarder = rewarder
         return 
     
-    def save(self, path):
+    def save(self):
+        """
+        Save the generator to the path.
+        
+        Args:
+            path: Optional path to save the generator to. If not provided, uses self.save_path.
+        """
         return
     
-    def load(self, path):
+    def load(self):
         return

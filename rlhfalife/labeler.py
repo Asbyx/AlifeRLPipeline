@@ -8,43 +8,44 @@ from tkinter import ttk
 import numpy as np
 import threading
 from rlhfalife.utils import Simulator
+from rlhfalife.data_managers import DatasetManager, PairsManager
 
-def launch_video_labeler(simulator: Simulator, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
+def launch_video_labeler(simulator: Simulator, dataset_manager: DatasetManager, pairs_manager: PairsManager, verbose: bool = False) -> None:
     """
     Launch the video labeler app.
     
     Args:
         simulator: Simulator object that will be used for generating pairs
-        pairs_path: Path to the pairs CSV file
-        out_paths: Dictionary containing output paths
+        dataset_manager: DatasetManager instance for storing simulation data
+        pairs_manager: PairsManager instance for storing pairs
         verbose: Whether to print verbose output
     
     Note: executes in the main thread.
     """
     root = tk.Tk()
-    app = VideoLabelerApp(root, simulator, pairs_path, out_paths, verbose)
+    app = VideoLabelerApp(root, simulator, dataset_manager, pairs_manager, verbose)
     root.protocol("WM_DELETE_WINDOW", app.save_and_exit)
     root.mainloop()
 
 class VideoLabelerApp:
-    def __init__(self, master: tk.Tk, simulator: Simulator, pairs_path: str, out_paths: dict, verbose: bool = False) -> None:
+    def __init__(self, master: tk.Tk, simulator: Simulator, dataset_manager: DatasetManager, 
+                 pairs_manager: PairsManager, verbose: bool = False) -> None:
         """
         Initialize the video labeler app
 
         Args:
             master: The master window
             simulator: The simulator to use
-            pairs_path: The path to the pairs CSV file
-            out_paths: The paths to the outputs
+            dataset_manager: DatasetManager instance for storing simulation data
+            pairs_manager: PairsManager instance for storing pairs
             verbose: Whether to print verbose output
         """
         self.simulator = simulator
-        self.pairs_path = pairs_path
-        self.out_paths = out_paths
+        self.dataset_manager = dataset_manager
+        self.pairs_manager = pairs_manager
         self.verbose = verbose
         
         self.master = master
-        self.load_pairs()
         self.after_id = None
 
         self.master.title("Video Labeler")
@@ -55,49 +56,7 @@ class VideoLabelerApp:
         self.master.attributes('-topmost', True)
         self.master.attributes('-topmost', False)
         self.update_progress_percentage()
-        self.show_pair()
-
-    def load_pairs(self):
-        """Load pairs from CSV file, filter unranked pairs, and shuffle them."""
-        # Load all pairs from CSV
-        self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
-        
-        # Filter unranked pairs (those with null winner)
-        self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()].copy()
-        
-        # If there are no unranked pairs, create new ones
-        if len(self.unranked_pairs) == 0:
-            unique_param1 = self.pairs_df['param1'].unique() if 'param1' in self.pairs_df.columns else []
-            unique_param2 = self.pairs_df['param2'].unique() if 'param2' in self.pairs_df.columns else []
-            
-            if len(unique_param1) > 0 and len(unique_param2) > 0:
-                param1_values = np.tile(unique_param1, len(unique_param2))
-                param2_values = np.repeat(unique_param2, len(unique_param1))
-                
-                # Shuffle param2 values while maintaining the structure
-                param2_indices = np.arange(len(param2_values))
-                np.random.shuffle(param2_indices)
-                shuffled_param2 = param2_values[param2_indices]
-                
-                new_pairs = pd.DataFrame({
-                    'param1': param1_values,
-                    'param2': shuffled_param2,
-                    'winner': np.nan
-                })
-                
-                # get rid of pairs that are the same
-                new_pairs = new_pairs[new_pairs['param1'] != new_pairs['param2']]
-                new_pairs = new_pairs.drop_duplicates(subset=['param1', 'param2'])
-                
-                # Append new pairs to the existing pairs_df
-                self.pairs_df = pd.concat([self.pairs_df, new_pairs], ignore_index=True)
-                
-                # Update unranked_pairs to include the new pairs
-                self.unranked_pairs = self.pairs_df[self.pairs_df['winner'].isnull()].copy()
-        
-        # Shuffle the unranked pairs for randomized presentation
-        self.unranked_pairs = self.unranked_pairs.sample(frac=1).reset_index(drop=True)
-        self.current_pair_index = 0
+        self.load_next_videos()
 
     def create_widgets(self):
         self.video_frame = tk.Frame(self.master)
@@ -120,6 +79,12 @@ class VideoLabelerApp:
         self.right_progress = ttk.Progressbar(self.progress_frame, orient="horizontal", length=200, mode="determinate")
         self.right_progress.pack(side="right", padx=5)
 
+        # Add pair info label
+        self.pair_info_frame = tk.Frame(self.master)
+        self.pair_info_frame.pack(pady=5)
+        self.pair_info_label = tk.Label(self.pair_info_frame, text="Pair 0 of 0")
+        self.pair_info_label.pack()
+
         self.button_frame = tk.Frame(self.master)
         self.button_frame.pack()
 
@@ -134,7 +99,7 @@ class VideoLabelerApp:
         self.quit_frame.pack(pady=10, fill=tk.X)
         
         # Add progress percentage label
-        self.progress_label = tk.Label(self.quit_frame, text="0% Ranked")
+        self.progress_label = tk.Label(self.quit_frame, text="Progress: 0% (0/0)")
         self.progress_label.pack(side="left", padx=10)
         
         self.quit_button = tk.Button(self.quit_frame, text="Quit", command=self.save_and_exit)
@@ -154,56 +119,62 @@ class VideoLabelerApp:
         self.master.bind('<space>', lambda event: self.restart_videos())
         self.master.bind('<BackSpace>', lambda event: self.previous_pair())
 
-    def show_pair(self):
-        if self.current_pair_index < len(self.unranked_pairs):
-            pair = self.unranked_pairs.iloc[self.current_pair_index]
-            self.left_video_path = os.path.join(self.out_paths['videos'], f"{pair['param1']}.mp4")
-            self.right_video_path = os.path.join(self.out_paths['videos'], f"{pair['param2']}.mp4")
-            
-            # Check if video files exist
-            if not os.path.exists(self.left_video_path) or not os.path.exists(self.right_video_path):
-                messagebox.showerror("Error", f"Video files not found ({self.left_video_path}, {self.right_video_path}).")
-                return
-
-            # Display loading message
-            self.left_video_label.config(text="Loading left video...")
-            self.right_video_label.config(text="Loading right video...")
-
-            if self.verbose:
-                print(f"Loading videos: {self.left_video_path}, {self.right_video_path}")
-            self.play_videos()
+    def load_next_videos(self, undo: bool = False):
+        """Display the current pair of videos."""
+        if undo:
+            self.hash1, self.hash2 = self.pairs_manager.get_last_ranked_pair()
         else:
+            self.hash1, self.hash2 = self.pairs_manager.get_next_unranked_pair()
+        if self.hash1 is None or self.hash2 is None:
             self.prompt_generate_new_pairs()
+            return
+
+        # Get video paths from dataset manager
+        video_path1, video_path2 = self.dataset_manager.get_video_paths([self.hash1, self.hash2])
+        
+        if not video_path1 or not video_path2:
+            messagebox.showerror("Error", f"Video files not found for pair {self.hash1}, {self.hash2}")
+            self.load_next_videos()
+            return
+        
+        # Open the videos
+        self.cap1 = cv2.VideoCapture(video_path1)
+        self.cap2 = cv2.VideoCapture(video_path2)
+        
+        if not self.cap1.isOpened() or not self.cap2.isOpened():
+            messagebox.showerror("Error", f"Failed to open video files {video_path1}, {video_path2}")
+            return
+        
+        # Update the pair info label
+        self.pair_info_label.config(text=f"Pair {self.pairs_manager.get_nb_ranked_pairs()} of {self.pairs_manager.get_nb_pairs()}")
+        
+        # Start playing the videos
+        self.play_videos()
 
     def prompt_generate_new_pairs(self):
-        if messagebox.askyesno("Generate New Pairs", "No more unranked pairs. Would you like to generate new simulators?"):
-            num_pairs = simpledialog.askinteger("Input", "How many simulators do you want to generate?", minvalue=1)
-            if num_pairs is not None:
-                self.generate_new_pairs(num_pairs)
-        else:
-            self.save_and_exit()
+        """Prompt the user to generate new pairs."""
+        num_pairs = simpledialog.askinteger("Generate Pairs", "No more pairs available. How many new pairs to generate?", minvalue=1)
+        if num_pairs:
+            self.generate_new_pairs(num_pairs)
 
     def generate_new_pairs(self, num_pairs):
-        """Generate new pairs of simulators"""
-        self.pairs_df.to_csv(self.pairs_path, index=False)
-
+        """Generate new pairs of simulations."""
         loading_screen = LoadingScreen(self.master)
         loading_screen.run_generation_process(
             self.simulator, 
             num_pairs, 
-            self.out_paths, 
-            self.pairs_path, 
+            self.dataset_manager, 
+            self.pairs_manager,
             self.verbose,
-            on_complete=self.on_generation_complete,
-            on_error=self.on_generation_error
+            on_complete=lambda: self.on_generation_complete(loading_screen),
+            on_error=lambda error_message: self.on_generation_error(loading_screen, error_message)
         )
 
     def on_generation_complete(self, loading_screen):
         """Called when generation is complete"""
         loading_screen.close()
-        self.load_pairs()
         self.update_progress_percentage()
-        self.show_pair()
+        self.load_next_videos()
         
     def on_generation_error(self, loading_screen, error_message):
         """Handle errors during generation"""
@@ -211,120 +182,132 @@ class VideoLabelerApp:
         messagebox.showerror("Error", f"An error occurred during pair generation:\n{error_message}")
 
     def play_videos(self):
-        self.left_cap = cv2.VideoCapture(self.left_video_path)
-        self.right_cap = cv2.VideoCapture(self.right_video_path)
+        """Start playing the videos."""
         self.update_frames()
 
     def update_frames(self):
-        ret_left, frame_left = self.left_cap.read()
-        ret_right, frame_right = self.right_cap.read()
+        """Update the video frames."""
+        ret1, frame1 = self.cap1.read()
+        ret2, frame2 = self.cap2.read()
 
-        if not ret_left:
+        if not ret1:
             if self.verbose:
-                print("Replaying left video.")
-            self.left_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret_left, frame_left = self.left_cap.read()
+                print("Replaying first video.")
+            self.cap1.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret1, frame1 = self.cap1.read()
 
-        if not ret_right:
+        if not ret2:
             if self.verbose:
-                print("Replaying right video.")
-            self.right_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret_right, frame_right = self.right_cap.read()
+                print("Replaying second video.")
+            self.cap2.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret2, frame2 = self.cap2.read()
 
-        if ret_left and ret_right:
-            frame_left = cv2.cvtColor(frame_left, cv2.COLOR_BGR2RGB)
-            frame_right = cv2.cvtColor(frame_right, cv2.COLOR_BGR2RGB)
-
-            img_left = ImageTk.PhotoImage(Image.fromarray(frame_left))
-            img_right = ImageTk.PhotoImage(Image.fromarray(frame_right))
-
-            self.left_video_label.config(image=img_left, text="")
-            self.left_video_label.image = img_left
-
-            self.right_video_label.config(image=img_right, text="")
-            self.right_video_label.image = img_right
-
-            # Update progress bars
-            left_pos = self.left_cap.get(cv2.CAP_PROP_POS_FRAMES)
-            left_total = self.left_cap.get(cv2.CAP_PROP_FRAME_COUNT)
-            self.left_progress['value'] = (left_pos / left_total) * 100 if left_total > 0 else 0
-
-            right_pos = self.right_cap.get(cv2.CAP_PROP_POS_FRAMES)
-            right_total = self.right_cap.get(cv2.CAP_PROP_FRAME_COUNT)
-            self.right_progress['value'] = (right_pos / right_total) * 100 if right_total > 0 else 0
-
-            if self.after_id is not None:
-                self.master.after_cancel(self.after_id)
-            self.after_id = self.master.after(30, self.update_frames)
+        if ret1 and ret2:
+            # Convert frames from BGR to RGB
+            frame1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2RGB)
+            frame2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB)
+            
+            # Resize frames if needed
+            frame1 = cv2.resize(frame1, (300, 300))
+            frame2 = cv2.resize(frame2, (300, 300))
+            
+            # Convert to PIL Image
+            img1 = Image.fromarray(frame1)
+            img2 = Image.fromarray(frame2)
+            
+            # Convert to PhotoImage
+            photo1 = ImageTk.PhotoImage(image=img1)
+            photo2 = ImageTk.PhotoImage(image=img2)
+            
+            # Update labels
+            self.left_video_label.config(image=photo1)
+            self.left_video_label.image = photo1
+            self.right_video_label.config(image=photo2)
+            self.right_video_label.image = photo2
+            
+            # Schedule the next frame update
+            self.after_id = self.master.after(33, self.update_frames)  # ~30 fps
         else:
             if self.verbose:
-                print("Finished playing videos or error in reading frames.")
-            self.left_cap.release()
-            self.right_cap.release()
+                print("Error reading frames.")
+            self.restart_videos()
 
     def left_wins(self):
-        self.record_winner(str(self.unranked_pairs.iloc[self.current_pair_index]['param1']))
+        self.record_winner('left')
 
     def right_wins(self):
-        self.record_winner(str(self.unranked_pairs.iloc[self.current_pair_index]['param2']))
+        self.record_winner('right')
 
     def record_winner(self, winner):
+        """Record the winner of the current pair."""
         # Release video resources
-        self.left_cap.release()
-        self.right_cap.release()
+        if hasattr(self, 'cap1') and self.cap1 is not None:
+            self.cap1.release()
+            self.cap1 = None
+        if hasattr(self, 'cap2') and self.cap2 is not None:
+            self.cap2.release()
+            self.cap2 = None
         
-        # Get the current pair
-        current_pair = self.unranked_pairs.iloc[self.current_pair_index]
+        # Cancel any pending frame updates
+        if self.after_id:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
         
-        # Find the corresponding row in pairs_df that matches the current pair
-        mask = (self.pairs_df['param1'] == current_pair['param1']) & \
-               (self.pairs_df['param2'] == current_pair['param2']) & \
-               (self.pairs_df['winner'].isnull())
-        
-        # Update the winner in pairs_df
-        self.pairs_df.loc[mask, 'winner'] = winner
-        
-        # Move to the next pair
-        self.current_pair_index += 1
+        # Record the winner
+        winner = 0 if winner == 'left' else 1
+        self.pairs_manager.set_winner(self.hash1, self.hash2, winner)
+
+        self.load_next_videos()
         self.update_progress_percentage()
-        self.show_pair()
-        
+
     def update_progress_percentage(self):
-        """Update the progress percentage label based on ranked pairs."""
-        total_pairs = len(self.pairs_df)
-        ranked_pairs = len(self.pairs_df[self.pairs_df['winner'].notnull()])
-        percentage = int((ranked_pairs / total_pairs) * 100) if total_pairs > 0 else 0
-        self.progress_label.config(text=f"{percentage}% Ranked")
-        
+        """Update the progress percentage label."""
+        nb_pairs = self.pairs_manager.get_nb_pairs()
+        nb_ranked_pairs = self.pairs_manager.get_nb_ranked_pairs()
+        self.progress_label.config(text=f"Progress: {((nb_ranked_pairs) / nb_pairs) * 100 if nb_pairs > 0 else 0:.1f}% ({nb_ranked_pairs}/{nb_pairs})")
+
     def save_and_exit(self):
         # Release video resources if they exist
-        if hasattr(self, 'left_cap'):
-            self.left_cap.release()
-        if hasattr(self, 'right_cap'):
-            self.right_cap.release()
-        
-        # Save the current state
-        self.pairs_df.to_csv(self.pairs_path, index=False)
+        if hasattr(self, 'cap1'):
+            self.cap1.release()
+        if hasattr(self, 'cap2'):
+            self.cap2.release()
         
         # Cancel any pending after callbacks
         if self.after_id is not None:
             self.master.after_cancel(self.after_id)
         
+        # Save the pairs manager
+        self.pairs_manager.save()
+
+        # Save the dataset manager
+        self.dataset_manager.save()
+
         # Destroy the window and quit
         self.master.destroy()
         self.master.quit()
 
     def restart_videos(self):
-        if hasattr(self, 'left_cap') and hasattr(self, 'right_cap'):
-            self.left_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            self.right_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            self.update_frames()
+        if hasattr(self, 'cap1') and hasattr(self, 'cap2'):
+            self.cap1.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.cap2.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     def previous_pair(self):
-        if self.current_pair_index > 0:
-            self.current_pair_index -= 1
-            self.update_progress_percentage()
-            self.show_pair()
+        # Release video resources
+        if hasattr(self, 'cap1') and self.cap1 is not None:
+            self.cap1.release()
+            self.cap1 = None
+        if hasattr(self, 'cap2') and self.cap2 is not None:
+            self.cap2.release()
+            self.cap2 = None
+        
+        # Cancel any pending frame updates
+        if self.after_id:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
+
+        self.load_next_videos(undo=True)
+        self.update_progress_percentage()
 
 class LoadingScreen:
     def __init__(self, master, title="Generating Pairs"):
@@ -421,49 +404,39 @@ class LoadingScreen:
         self.window.grab_release()
         self.window.destroy()
         
-    def run_generation_process(self, simulator, num_pairs, out_paths, pairs_path, verbose=False, on_complete=None, on_error=None):
+    def run_generation_process(self, simulator, num_pairs, dataset_manager, pairs_manager, 
+                              verbose=False, on_complete=None, on_error=None):
         """
-        Run the generation process in a separate thread with progress updates
+        Run the generation process in a separate thread.
         
         Args:
-            simulator: The simulator object
+            simulator: The simulator to use
             num_pairs: Number of pairs to generate
-            out_paths: Dictionary of output paths
-            pairs_path: Path to the pairs CSV file
+            dataset_manager: DatasetManager instance for storing simulation data
+            pairs_manager: PairsManager instance for storing pairs
             verbose: Whether to print verbose output
-            on_complete: Callback function to call when generation completes successfully
+            on_complete: Callback function to call when generation is complete
             on_error: Callback function to call when an error occurs
         """
-        # Set to determinate mode with known number of steps
-        # We have approximately 7 main steps in the generation process
-        self.set_determinate_mode(10)
+        self.update_status("Initializing...")
         
-        # Define a callback function to update the loading screen
         def update_callback(message):
             self.update_status(message)
-            self.increment_progress()
-            
-        # Run the generation in a separate thread
+            return True  # Continue processing
+        
         def run_generation():
             try:
-                success = simulator.generate_pairs(
+                simulator.generate_pairs(
                     num_pairs, 
-                    out_paths, 
-                    pairs_path, 
-                    verbose=verbose,
+                    dataset_manager, 
+                    pairs_manager, 
+                    verbose=verbose, 
                     progress_callback=update_callback
                 )
-                
-                # Update the UI in the main thread
-                if success:
-                    if on_complete:
-                        self.master.after(0, lambda: on_complete(self))
-                else:
-                    self.master.after(0, lambda: self.close())
+                if on_complete:
+                    self.master.after(0, on_complete)
             except Exception as e:
-                # Handle any exceptions
                 if on_error:
-                    self.master.after(0, lambda: on_error(self, str(e)))
+                    self.master.after(0, lambda: on_error(str(e)))
         
-        # Start the generation thread
-        threading.Thread(target=run_generation, daemon=True).start()
+        threading.Thread(target=run_generation).start()

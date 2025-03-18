@@ -3,6 +3,7 @@ from rlhfalife.labeler import launch_video_labeler
 from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
+from rlhfalife.data_managers import DatasetManager, PairsManager
 import importlib
 
 #--------------- Profile Selection ---------------#
@@ -11,8 +12,10 @@ profiles = [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("pro
 print("Available profiles:")
 for p in profiles:
     print(f"- {p}")
-
 profile = input("\nPlease enter the profile you want to use: ")
+while profile not in profiles:
+    print(f"Profile '{profile}' not found. Please try again.")
+    profile = input("\nPlease enter the profile you want to use: ")
 profile_file_path = os.path.join("profiles", profile, f"{profile}.py")
 
 # Load the module dynamically
@@ -48,15 +51,21 @@ os.makedirs(params_path, exist_ok=True)
 os.makedirs(rewarder_path, exist_ok=True)
 os.makedirs(generator_path, exist_ok=True)
 os.makedirs(saved_simulations_path, exist_ok=True)
-# Create the pairs.csv file if it does not exist
+
+#--------------- Data Managers ---------------#
+# Create the dataset.csv file path
+dataset_path = os.path.join(out_path, "dataset.csv")
+
+# Create the pairs.csv file path
 pairs_path = os.path.join(out_path, "pairs.csv")
-if not os.path.exists(pairs_path):
-    with open(pairs_path, "w") as f:
-        f.write("param1,param2,winner\n")
 
 #--------------- Loading ---------------#
 loader = profile_module.Loader()
 generator, rewarder, simulator = loader.load(out_paths)
+
+# Initialize data managers
+dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
+pairs_manager = PairsManager(pairs_path)
 
 #-------- Menu System --------#
 def print_menu():
@@ -72,11 +81,11 @@ def main():
         choice = print_menu()
         
         if choice == "1":
-            launch_video_labeler(simulator, pairs_path, out_paths, verbose=False)
+            launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False)
         elif choice == "2":
-            launch_benchmarker(simulator, generator, rewarder, out_paths)
+            launch_benchmarker(simulator, generator, rewarder, dataset_manager)
         elif choice == "3":
-            launch_training(generator, rewarder, simulator, pairs_path, out_paths)
+            launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
         elif choice == "4":
             print("Exiting AlifeHub...")
             break

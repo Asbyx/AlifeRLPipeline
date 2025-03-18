@@ -13,8 +13,8 @@ This pipeline include every steps.
 Run `pip install -e .` in order to install the required packages and the `rlhfalife` package which you can easily import in any files to use. It is not expected to import anything else than the `rlhfalife.utils` module
 
 ## Usage
-One must implement a python package, containing a `Simulator`, a `Generator` and a `Rewarder`, in `profiles/<new profile>`, using the abstract classes given in `rlhfalife.utils.py` (it is recommended to inherit the classes).   
-**The only requirement** is to have a `Loader` (abstract still available in `rlhfalife.utils.py`), which is made available through an `__init__.py` file in the package. The rest is free to implement as your convenience!
+One must implement a python package, containing a `Simulator`, a `Generator` and a `Rewarder`, in `profiles/<new profile>`, using the abstract classes given in `rlhfalife.utils.py` (it is recommended to inherit the classes). The parameters of the functions to implement *must not be changed*, as the pipeline make automated calls to them. But, one can define the `__init__` as they want, as long as the super is also called. That way, one can add the attributes they want to their object. The initialization of the objects is fully handled by the user through the `Loader`. One can also create functions called by other components.   
+**The only requirement of the package** is to have a `Loader` (abstract still available in `rlhfalife.utils.py`), which is made available through an `__init__.py` file in the package. The rest is free to implement as your convenience!
 
 An example is provided with the `lenia` profile. Note that the files structure is not mandatory, only the `__init__.py` should be present.
 
@@ -25,6 +25,7 @@ The pipeline is divided in three categories:
 - **Launch training**: Simply launch a rewardor and then a generator training, based on the labeled simulations.
 
 # WIP
+- fix labeler. Try everything since everything has changed (massive refactor using the dataset manager)
 - Integrate feedback
 - Labeler: 
     - Propose to wipe existing pairs and regenerate an arbitrary number of pairs

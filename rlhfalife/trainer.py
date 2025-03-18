@@ -1,6 +1,8 @@
-from rlhfalife.utils import Rewarder, Generator, Simulator
+from .utils import Rewarder, Generator, Simulator
+from .data_managers import DatasetManager, PairsManager
 
-def launch_training(generator: Generator, rewarder: Rewarder, simulator: Simulator, pairs_path: str, out_paths: dict) -> None:
+def launch_training(generator: Generator, rewarder: Rewarder, simulator: Simulator, 
+                   pairs_manager: PairsManager, dataset_manager: DatasetManager) -> None:
     """
     Launch the training of the rewarder and the generator
     
@@ -8,17 +10,17 @@ def launch_training(generator: Generator, rewarder: Rewarder, simulator: Simulat
         generator: The generator to train
         rewarder: The rewarder to train
         simulator: The simulator to use
-        pairs_path: The path to the pairs
-        out_paths: The paths to the outputs
+        pairs_manager: PairsManager instance for storing pairs
+        dataset_manager: DatasetManager instance for storing simulation data
     """
     print("Training the rewarder...")
-    rewarder.train(pairs_path, out_paths)
+    rewarder.train(dataset_manager, pairs_manager)
     print("Training the generator...")
     generator.train(simulator, rewarder)
     print("Training complete!")
     
-    if input("Save the rewarder and generator (Possibility will be given to save them after benchmarkming) ? (y/n)") == "y":
-        rewarder.save(out_paths["rewarder"])
-        generator.save(out_paths["generator"])
+    if input("Save the rewarder and generator (Possibility will be given to save them after benchmarking)? (y/n)") == "y":
+        rewarder.save()
+        generator.save()
         print("Rewarder and generator saved!")
 
