@@ -94,6 +94,12 @@ class VideoLabelerApp:
         self.right_button = tk.Button(self.button_frame, text="Right Wins", command=self.right_wins)
         self.right_button.pack(side="right")
 
+        # Add reset & regenerate button
+        self.reset_frame = tk.Frame(self.master)
+        self.reset_frame.pack(pady=5)
+        self.reset_button = tk.Button(self.reset_frame, text="Reset & Regenerate", command=self.reset_and_regenerate)
+        self.reset_button.pack()
+
         # Add quit button frame at the bottom
         self.quit_frame = tk.Frame(self.master)
         self.quit_frame.pack(pady=10, fill=tk.X)
@@ -309,6 +315,44 @@ class VideoLabelerApp:
 
         self.load_next_videos(undo=True)
         self.update_progress_percentage()
+
+    def reset_and_regenerate(self):
+        """Reset all pairs and regenerate new ones."""
+        # Confirm with the user
+        result = messagebox.askyesno("Confirm Reset", 
+                                     "Are you sure you want to reset all pairs and files?\n"
+                                     "This will delete all existing simulations and videos.")
+        if not result:
+            return
+            
+        # Release video resources
+        if self.cap1 is not None:
+            self.cap1.release()
+            self.cap1 = None
+        if self.cap2 is not None:
+            self.cap2.release()
+            self.cap2 = None
+            
+        # Cancel any pending frame updates
+        if self.after_id:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
+            
+        # Reset dataset and pairs
+        self.dataset_manager.reset()
+        self.pairs_manager.reset()
+        
+        # Prompt for number of new pairs
+        num_pairs = simpledialog.askinteger("Generate Pairs", 
+                                           "How many new pairs would you like to generate?", 
+                                           minvalue=1, 
+                                           initialvalue=5)
+        if num_pairs:
+            self.generate_new_pairs(num_pairs)
+        else:
+            # If user cancels, just update the UI
+            self.update_progress_percentage()
+            self.load_next_videos()
 
 class LoadingScreen:
     def __init__(self, master, title="Generating Pairs"):

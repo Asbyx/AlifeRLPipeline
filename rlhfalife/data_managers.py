@@ -44,6 +44,36 @@ class DatasetManager:
         """Save the dataset to the CSV file."""
         self.data_df.to_csv(self.dataset_path, index=False)
     
+    def reset(self):
+        """
+        Reset the dataset by deleting all files and clearing the dataframe.
+        """
+        # Get all file paths
+        all_param_files = []
+        all_output_files = []
+        all_video_files = []
+        
+        for _, row in self.data_df.iterrows():
+            if os.path.exists(row['param_path']):
+                all_param_files.append(row['param_path'])
+            if os.path.exists(row['output_path']):
+                all_output_files.append(row['output_path'])
+            if os.path.exists(row['video_path']):
+                all_video_files.append(row['video_path'])
+                
+        # Delete all files
+        for file_path in all_param_files + all_output_files + all_video_files:
+            try:
+                os.remove(file_path)
+            except (OSError, FileNotFoundError):
+                pass  # Ignore errors if file doesn't exist or can't be deleted
+                
+        # Reset the dataframe
+        self.data_df = pd.DataFrame(columns=['hash', 'param_path', 'output_path', 'video_path'])
+        
+        # Save the empty dataframe
+        self.save()
+    
     def add_entry(self, hash_value: str, param_path: str, output_path: str, video_path: str):
         """
         Add a new entry to the dataset.
@@ -205,6 +235,12 @@ class PairsManager:
             self.pairs_df = pd.DataFrame(columns=['hash1', 'hash2', 'winner'])
         self.save()
 
+    def reset(self):
+        """
+        Reset the pairs manager by clearing all pairs and saving an empty pairs file.
+        """
+        self.pairs_df = pd.DataFrame(columns=['hash1', 'hash2', 'winner'])
+        self.save()
 
     def _reindex_pairs(self):
         """
