@@ -11,10 +11,12 @@ import importlib
 profiles = [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d))]
 print("Available profiles:")
 for p in profiles:
-    print(f"- {p}")
+    if p != "__pycache__":
+        print(f"- {p}")
 profile = input("\nPlease enter the profile you want to use: ")
+
 while profile not in profiles:
-    print(f"Profile '{profile}' not found. Please try again.")
+    print(f"Profile '{profile}' not found. Please enter a valid profile.")
     profile = input("\nPlease enter the profile you want to use: ")
 profile_file_path = os.path.join("profiles", profile, f"{profile}.py")
 

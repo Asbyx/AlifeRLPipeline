@@ -77,19 +77,13 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
 
         return scores
 
-    def train(self, dataset_manager, pairs_manager):
+    def train(self, training_dataset):
         """
         Train the rewarder using paired comparisons.
         
         Args:
-            dataset_manager: DatasetManager instance containing the dataset
-            pairs_manager: PairsManager instance containing the pairs
+            training_dataset: TrainingDataset instance containing the dataset
         """
-        # Get ranked pairs from the pairs manager
-        pairs_df = pairs_manager._get_ranked_pairs()
-        
-        print(f"Starting training with {len(pairs_df)} comparison pairs")
-        
         # clear cache
         torch.cuda.empty_cache()
 
@@ -97,13 +91,12 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
         total_loss = 0
         correct_predictions = 0
         
-        # Convert pairs to training data
-        for idx, row in pairs_df.iterrows():
-            hash1 = row['hash1']
-            hash2 = row['hash2']
+        # Iterate through the training dataset
+        for idx, (output_path1, output_path2, winner) in enumerate(training_dataset):
+            # Load outputs, saved as pt files
+            video1 = torch.load(output_path1)
+            video2 = torch.load(output_path2)
             
-            # Load the outputs
-            video1, video2 = dataset_manager.load_outputs([hash1, hash2]) # note: in our case, the outputs are the video
             # Add batch dimension
             video1 = video1.unsqueeze(0)
             video2 = video2.unsqueeze(0)
@@ -121,8 +114,10 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
             video1 = video1.to(self.device)
             video2 = video2.to(self.device)
             
-            # Create labels (1 if hash1 won, 0 if hash2 won)
-            label = torch.tensor([1.0 if row['winner'] == hash1 else 0.0]).to(self.device)
+            # Create label based on winner (0 if first video won, 1 if second video won)
+            # TrainingDataset already provides winner as 0 or 1, but we need to convert to float
+            # and invert the logic since our model expects 1 if first video is better
+            label = torch.tensor([float(winner)]).to(self.device)
             
             # Train step
             self.optimizer.zero_grad()
@@ -136,7 +131,7 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
             # Track metrics
             total_loss += loss.item()
             predicted_winner = 1 if pred.item() > 0.5 else 0
-            actual_winner = 1 if row['winner'] == hash1 else 0
+            actual_winner = winner
             correct_predictions += (predicted_winner == actual_winner)
             
             loss.backward()
@@ -149,12 +144,16 @@ class Lenia_Rewarder(rlhfalife.utils.Rewarder):
                 print(f"Loss: {loss.item():.4f} (avg: {avg_loss:.4f})")
                 print(f"Prediction: {pred.item():.4f} (threshold: 0.5)")
                 print(f"Current accuracy: {accuracy:.2f}%")
-                print(f"Completed {idx + 1}/{len(pairs_df)} pairs")
+                print(f"Completed {idx + 1}/{len(training_dataset)} pairs")
                 print()
             
+            # remove videos from memory
+            del video1, video2
+            torch.cuda.empty_cache()
+            
         # Print final statistics
-        print(f"Final average loss: {total_loss / len(pairs_df):.4f}")
-        print(f"Final accuracy: {(correct_predictions / len(pairs_df)) * 100:.2f}%")
+        print(f"Final average loss: {total_loss / len(training_dataset):.4f}")
+        print(f"Final accuracy: {(correct_predictions / len(training_dataset)) * 100:.2f}%")
 
     def save(self):
         self.model.save_weights(self.save_path)

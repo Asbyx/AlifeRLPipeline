@@ -25,7 +25,6 @@ The pipeline is divided in three categories:
 - **Launch training**: Simply launch a rewardor and then a generator training, based on the labeled simulations.
 
 # WIP
-- fix labeler. Try everything since everything has changed (massive refactor using the dataset manager)
 - Integrate feedback
 - Labeler: 
     - Propose to wipe existing pairs and regenerate an arbitrary number of pairs

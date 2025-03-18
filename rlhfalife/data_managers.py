@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from typing import List, Any, Optional, Tuple
+from typing import List, Any, Optional, Tuple, Iterator
 
 
 class DatasetManager:
@@ -364,3 +364,58 @@ class PairsManager:
         if ranked_pairs.empty:
             return None, None
         return ranked_pairs.iloc[-1]['hash1'], ranked_pairs.iloc[-1]['hash2']
+
+class TrainingDataset:
+    """
+    Manages the data for the training of the rewarder
+    """
+    def __init__(self, pairs_manager: PairsManager, dataset_manager: DatasetManager):
+        """
+        Initialize the TrainingDataset.
+        This dataset delivers triplets of (path_to_output_1, path_to_output_2, winner). The pairs are all ranked.
+
+        Args:
+            pairs_manager: The pairs manager
+            dataset_manager: The dataset manager
+        """
+        ranked_pairs = pairs_manager._get_ranked_pairs()
+        
+        # Prepare the data
+        self.data = []
+        for _, row in ranked_pairs.iterrows():
+            hash1 = row['hash1']
+            hash2 = row['hash2']
+            winner = 0 if row['winner'] == hash1 else 1
+            
+            # Get the output paths
+            output_path1 = dataset_manager.get_output_paths([hash1])[0]
+            output_path2 = dataset_manager.get_output_paths([hash2])[0]
+            
+            self.data.append((output_path1, output_path2, winner))
+
+    def __len__(self) -> int:
+        """
+        Get the number of pairs in the dataset
+        """
+        return len(self.data)
+
+    def __getitem__(self, index: int) -> Tuple[str, str, int]:
+        """
+        Get the pair at the given index.
+
+        Returns:
+            A tuple containing the path_to_output_1, path_to_output_2, {0, 1} (winner is 0 for left, 1 for right)
+        """
+        if index < 0 or index >= len(self.data):
+            raise IndexError("Index out of bounds")
+        return self.data[index]
+
+    def __iter__(self) -> Iterator[Tuple[str, str, int]]:
+        """
+        Get an iterator over the pairs
+
+        Returns:
+            An iterator over the pairs
+        """
+        return iter(self.data)
+        

@@ -1,11 +1,11 @@
 import os
 import pandas as pd
 import itertools    
-from typing import TYPE_CHECKING, List, Any, Callable, Tuple, Optional
+from typing import TYPE_CHECKING, List, Any, Callable
 
 if TYPE_CHECKING:
     from rlhfalife.utils import Simulator, Rewarder
-    from rlhfalife.data_managers import DatasetManager, PairsManager
+    from rlhfalife.data_managers import DatasetManager, PairsManager, TrainingDataset
 
 class Generator:
     """
@@ -89,13 +89,12 @@ class Rewarder:
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
-    def train(self, dataset_manager: "DatasetManager", pairs_manager: "PairsManager") -> None:
+    def train(self, dataset: "TrainingDataset") -> None:
         """
         Train the rewarder on the pairs in pairs_manager
 
         Args:
-            dataset_manager: DatasetManager instance containing the dataset TODO plus simple de faire 1 seul objet non ?
-            pairs_manager: PairsManager instance containing the pairs TODO
+            dataset: TrainingDataset instance containing the dataset.
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
