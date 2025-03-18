@@ -28,6 +28,7 @@ class BenchmarkApp:
         self.videos = []
         self.params = []
         self.current_index = 0
+        self.after_id = None
 
         self.master.title("Benchmarking App")
         self.create_widgets()
@@ -80,10 +81,12 @@ class BenchmarkApp:
 
         self.update_status("Running simulators...")
         outputs = self.simulator.run(self.params)
+        
         self.update_status("Scoring simulators...")
-        self.scores = [score.item() for score in self.rewarder.rank(outputs)]
-        self.update_status("Sorting videos...")
-        self.videos = self.simulator.save_videos(self.params, outputs, self.out_paths['videos'])
+        self.scores = self.rewarder.rank(outputs)
+
+        self.update_status("Saving videos...")
+        self.videos = self.simulator.save_videos(self.generator.hash_params(self.params), outputs, self.out_paths['videos'])
 
         # Sort videos by score
         sorted_videos = sorted(zip(self.scores, self.videos, self.params), key=lambda x: x[0], reverse=True)
@@ -102,13 +105,17 @@ class BenchmarkApp:
         self.score_label.config(text=f"Score: {self.scores[index]}")
 
     def update_frame(self):
+        if self.after_id is not None:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
+
         ret, frame = self.cap.read()
         if ret:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img = ImageTk.PhotoImage(Image.fromarray(frame))
             self.video_label.config(image=img)
             self.video_label.image = img
-            self.master.after(30, self.update_frame)  # Update every 30 ms for smooth playback
+            self.after_id = self.master.after(30, self.update_frame)  # Update every 30 ms for smooth playback
         else:
             self.cap.release()
 
@@ -124,11 +131,11 @@ class BenchmarkApp:
 
     def save_video(self):
         # Save the video (duplicate the file) and params
-        shutil.copy(self.videos[self.current_index], self.out_paths['saved_simulators'])
-        self.simulator.save_params([self.params[self.current_index]], self.out_paths['saved_simulators'])
+        shutil.copy(self.videos[self.current_index], self.out_paths['saved_simulations'])
+        self.simulator.save_param(self.params[self.current_index], os.path.join(self.out_paths['saved_simulations'], str(self.generator.hash_params([self.params[self.current_index]])[0])))
 
-        print(f"Video saved to {self.out_paths['saved_simulators']}")
-        self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulators']} !")
+        print(f"Video saved to {self.out_paths['saved_simulations']}.")
+        self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulations']} !")
 
     def restart_video(self):
         self.cap.release()
