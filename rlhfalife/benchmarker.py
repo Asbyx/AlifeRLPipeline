@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox
 from rlhfalife.utils import Generator, Rewarder, Simulator
 import threading
 import cv2
@@ -153,6 +153,15 @@ class BenchmarkApp:
             except Exception as e:
                 print(f"Error deleting {video_path}: {e}")
         print("Deleted all videos")
+
+        # Ask if user wants to save the generator and rewarder
+        save_generator = messagebox.askyesno("Save Generator", "Do you want to save the generator?")
+        save_rewarder = messagebox.askyesno("Save Rewarder", "Do you want to save the rewarder?")
+
+        if save_generator:
+            self.generator.save()   
+        if save_rewarder:
+            self.rewarder.save()
 
         # Destroy the window
         self.master.destroy()

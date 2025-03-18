@@ -83,14 +83,11 @@ os.makedirs(saved_simulations_path, exist_ok=True)
 
 #--------------- Loading ---------------#
 loader = profile_module.Loader()
-generator, rewarder, simulator = loader.load(out_paths, config_dict)
 
 #--------------- Data Managers ---------------#
 dataset_path = os.path.join(out_path, "dataset.csv")
 pairs_path = os.path.join(out_path, "pairs.csv")
 
-dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
-pairs_manager = PairsManager(pairs_path)
 
 
 
@@ -107,6 +104,13 @@ def print_menu():
 
 def main():
     while True:
+        print("Loading the generator, rewarder and simulator, building the data managers")
+        generator, rewarder, simulator = loader.load(out_paths, config_dict)
+        dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
+        pairs_manager = PairsManager(pairs_path)
+        print()
+
+        # Launch the menu
         choice = print_menu()
         
         if choice == "1":
