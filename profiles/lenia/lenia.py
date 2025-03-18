@@ -9,7 +9,7 @@ class Loader(rlhfalife.utils.Loader):
     """
         Loader for Lenia.
     """
-    def load(self, out_paths):
+    def load(self, out_paths, config):
         """
         Load the generator, rewarder and simulator
         """
@@ -25,7 +25,10 @@ class Loader(rlhfalife.utils.Loader):
         generator = Lenia_Generator(rewarder)
         
         print("Initializing simulator...")
-        simulator = Lenia_Simulator(generator, (400, 400), 0.1, 300, device=device)
+        size = config["simulation"]["width"], config["simulation"]["height"]
+        dt = config["simulation"]["dt"]
+        t_max = config["simulation"]["t_max"]
+        simulator = Lenia_Simulator(generator, size, dt, t_max, device=device)
         rewarder.set_simulator(simulator)
         
         return generator, rewarder, simulator

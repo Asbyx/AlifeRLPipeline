@@ -1,0 +1,8 @@
+{
+    "simulation": {
+        "width": 400,
+        "height": 400,
+        "dt": 0.1,
+        "t_max": 300
+    }
+}

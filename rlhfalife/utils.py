@@ -1,5 +1,4 @@
 import os
-import pandas as pd
 import itertools    
 from typing import TYPE_CHECKING, List, Any, Callable
 
@@ -333,7 +332,7 @@ class Loader:
     Abstract Loader class to load a Generator, a Rewarder and a Simulator
     It is expected to be also named Loader.
     """
-    def load(self, out_paths: dict) -> tuple[Generator, Rewarder, Simulator]:
+    def load(self, out_paths: dict, config: dict) -> tuple[Generator, Rewarder, Simulator]:
         """
         Load the generator, rewarder and simulator
 
@@ -345,6 +344,7 @@ class Loader:
                 - 'rewarder': path to the rewarders folder,
                 - 'generator': path to the generators folder,
                 - 'saved_simulations': path to the saved simulations folder,
+            config: Dictionary containing the config of the experiment
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 

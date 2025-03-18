@@ -4,11 +4,16 @@ from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
 from rlhfalife.data_managers import DatasetManager, PairsManager
-import importlib
+import json
 
 #--------------- Profile Selection ---------------#
 # List available profiles
 profiles = [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d))]
+
+if len(profiles) == 0:
+    print("No profiles found. Please create a profile first. See the README for more information.")
+    exit(1)
+
 print("Available profiles:")
 for p in profiles:
     if p != "__pycache__":
@@ -18,7 +23,6 @@ profile = input("\nPlease enter the profile you want to use: ")
 while profile not in profiles:
     print(f"Profile '{profile}' not found. Please enter a valid profile.")
     profile = input("\nPlease enter the profile you want to use: ")
-profile_file_path = os.path.join("profiles", profile, f"{profile}.py")
 
 # Load the module dynamically
 try:
@@ -27,9 +31,31 @@ except Exception as e:
     print(f"Error loading profile '{profile}': {str(e)}")
     exit(1)
 
+#--------------- Config ---------------#
+# List available configs
+configs = [d for d in os.listdir(os.path.join("profiles", profile, "configs"))]
+
+if len(configs) == 0:
+    print("No configs found. Please create configs first. See the README for more information.")
+    exit(1)
+
+print("Available configs:")
+for c in configs:
+    if c != "__pycache__":
+        print(f"- {c.split('.')[0]}")
+config = input("\nPlease enter the config you want to use: ")
+
+while f"{config}.json" not in configs:
+    print(f"Config '{config}' not found. Please enter a valid config.")
+    config = input("\nPlease enter the config you want to use: ")
+
+config_file_path = os.path.join("profiles", profile, "configs", f"{config}.json")
+
+config_dict = json.load(open(config_file_path))
+
 #--------------- Out Paths ---------------#
 # Setup the out folders (outputs, videos)
-out_path = os.path.join("out", profile)
+out_path = os.path.join("out", profile, config)
 outputs_path = os.path.join(out_path, "outputs")
 videos_path = os.path.join(out_path, "videos")
 params_path = os.path.join(out_path, "params")
@@ -54,20 +80,21 @@ os.makedirs(rewarder_path, exist_ok=True)
 os.makedirs(generator_path, exist_ok=True)
 os.makedirs(saved_simulations_path, exist_ok=True)
 
-#--------------- Data Managers ---------------#
-# Create the dataset.csv file path
-dataset_path = os.path.join(out_path, "dataset.csv")
-
-# Create the pairs.csv file path
-pairs_path = os.path.join(out_path, "pairs.csv")
 
 #--------------- Loading ---------------#
 loader = profile_module.Loader()
-generator, rewarder, simulator = loader.load(out_paths)
+generator, rewarder, simulator = loader.load(out_paths, config_dict)
 
-# Initialize data managers
+#--------------- Data Managers ---------------#
+dataset_path = os.path.join(out_path, "dataset.csv")
+pairs_path = os.path.join(out_path, "pairs.csv")
+
 dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
 pairs_manager = PairsManager(pairs_path)
+
+
+
+
 
 #-------- Menu System --------#
 def print_menu():

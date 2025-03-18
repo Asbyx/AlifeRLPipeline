@@ -13,24 +13,30 @@ This pipeline include every steps.
 Run `pip install -e .` in order to install the required packages and the `rlhfalife` package which you can easily import in any files to use. It is not expected to import anything else than the `rlhfalife.utils` module
 
 ## Usage
-One must implement a python package, containing a `Simulator`, a `Generator` and a `Rewarder`, in `profiles/<new profile>`, using the abstract classes given in `rlhfalife.utils.py` (it is recommended to inherit the classes). The parameters of the functions to implement *must not be changed*, as the pipeline make automated calls to them. But, one can define the `__init__` as they want, as long as the super is also called. That way, one can add the attributes they want to their object. The initialization of the objects is fully handled by the user through the `Loader`. One can also create functions called by other components.   
-**The only requirement of the package** is to have a `Loader` (abstract still available in `rlhfalife.utils.py`), which is made available through an `__init__.py` file in the package. The rest is free to implement as your convenience!
+One must implement a **python package**, containing a `Simulator`, a `Generator` and a `Rewarder`, in `profiles/<new profile>`, using the abstract classes given in `rlhfalife.utils.py` (it is recommended to inherit the classes).  
+The parameters of the functions to implement **must not be changed**, as the pipeline make automated calls to them. But, one can define the `__init__` as they want, as long as the super is also called. That way, one can add the attributes they want to their object. The initialization of the objects is fully handled by the user through the `Loader`. One can also create functions called by other components.   
+
+**The only 2 requirements of the package** are: 
+- Have a `Loader` (abstract still available in `rlhfalife.utils.py`), which is made available through an `__init__.py` file in the package.  
+- Have a `configs` folder containing `json` config files, that will be passed to your `Loader`, with which you can setup your `Simulator`, a `Generator` and a `Rewarder` as you wish.     
+The rest is free to implement as your convenience, using the file architecture you want !
 
 An example is provided with the `lenia` profile. Note that the files structure is not mandatory, only the `__init__.py` should be present.
-
 Then, by running the main, the full pipeline is launched and the training starts.  
+
+
 The pipeline is divided in three categories:
 - **Label videos**: A window with 2 simulations will be presented, the user must select the "most interesting" one. Videos generation is fully automated.
 - **Benchmark rewarder**: 10 simulations will be generated and presented to the user, along with their scores given by the rewarder. That way, the user can check that the rewarder is indeed well aligned with the expectations.
 - **Launch training**: Simply launch a rewardor and then a generator training, based on the labeled simulations.
 
+Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.
+
 # WIP
-- Integrate feedback
 - Labeler: 
-    - Propose to wipe existing pairs and regenerate an arbitrary number of pairs
+    - Propose to wipe existing pairs and regenerate pairs
 - Benchmarker:
-    - Weird behavior uppon reading some videos
     - Propose to save the models or not
 - Correct the requirements.txt
-- Profile downloading and sharing
+- Profile & out downloading and sharing
 - Propose to reload everything (after modification for example)
