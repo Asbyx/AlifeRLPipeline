@@ -10,7 +10,9 @@ The pipeline is a loop of 4 stages:
 This pipeline include every steps.  
 
 ## Installation
+Clone the repository.  
 Run `pip install -e .` in order to install the required packages and the `rlhfalife` package which you can easily import in any files to use. It is not expected to import anything else than the `rlhfalife.utils` module
+Happy coding !
 
 ## Usage
 One must implement a **python package**, containing a `Simulator`, a `Generator` and a `Rewarder`, in `profiles/<new profile>`, using the abstract classes given in `rlhfalife.utils.py` (it is recommended to inherit the classes).  
@@ -31,7 +33,9 @@ The pipeline is divided in three categories:
 - **Benchmark rewarder**: 10 simulations will be generated and presented to the user, along with their scores given by the rewarder. That way, the user can check that the rewarder is indeed well aligned with the expectations.
 - **Launch training**: Simply launch a rewardor and then a generator training, based on the labeled simulations.
 
-Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.
+Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.  
+
+Please, fill free to open an issue to report a bug or make a suggestion !
 
 # WIP
 - Profile & out downloading and sharing
