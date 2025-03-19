@@ -1,99 +1,85 @@
 import os
+import json
+import argparse
 from rlhfalife.labeler import launch_video_labeler
 from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
 from rlhfalife.data_managers import DatasetManager, PairsManager
-import json
 
-#--------------- Profile Selection ---------------#
-# List available profiles
-profiles = [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d))]
+def get_available_profiles():
+    """Get list of available profiles."""
+    return [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d)) and d != "__pycache__"]
 
-if len(profiles) == 0:
-    print("No profiles found. Please create a profile first. See the README for more information.")
-    exit(1)
+def get_available_configs(profile):
+    """Get list of available configs for a profile."""
+    return [c.split('.')[0] for c in os.listdir(os.path.join("profiles", profile, "configs")) 
+            if c != "__pycache__" and c.endswith('.json')]
 
-print("Available profiles:")
-for p in profiles:
-    if p != "__pycache__":
-        print(f"- {p}")
-profile = input("\nPlease enter the profile you want to use: ")
+def select_profile(profile=None):
+    """Select a profile, either from argument or via prompt."""
+    profiles = get_available_profiles()
+    
+    if len(profiles) == 0:
+        print("No profiles found. Please create a profile first. See the README for more information.")
+        exit(1)
 
-while profile not in profiles:
-    print(f"Profile '{profile}' not found. Please enter a valid profile.")
-    profile = input("\nPlease enter the profile you want to use: ")
+    if profile is None:
+        print("Available profiles:")
+        for p in profiles:
+            print(f"- {p}")
+        profile = input("\nPlease enter the profile you want to use: ")
 
-# Load the module dynamically
-try:
-    profile_module = __import__(f"profiles.{profile}", fromlist=[profile])
-except Exception as e:
-    print(f"Error loading profile '{profile}': {str(e)}")
-    exit(1)
+        while profile not in profiles:
+            print(f"Profile '{profile}' not found. Please enter a valid profile.")
+            profile = input("\nPlease enter the profile you want to use: ")
+    elif profile not in profiles:
+        print(f"Error: Profile '{profile}' not found.")
+        exit(1)
 
-#--------------- Config ---------------#
-# List available configs
-configs = [d for d in os.listdir(os.path.join("profiles", profile, "configs"))]
+    return profile
 
-if len(configs) == 0:
-    print("No configs found. Please create configs first. See the README for more information.")
-    exit(1)
+def select_config(profile, config=None):
+    """Select a config, either from argument or via prompt."""
+    configs = get_available_configs(profile)
+    
+    if len(configs) == 0:
+        print("No configs found. Please create configs first. See the README for more information.")
+        exit(1)
 
-print("Available configs:")
-for c in configs:
-    if c != "__pycache__":
-        print(f"- {c.split('.')[0]}")
-config = input("\nPlease enter the config you want to use: ")
+    if config is None:
+        print("Available configs:")
+        for c in configs:
+            print(f"- {c}")
+        config = input("\nPlease enter the config you want to use: ")
 
-while f"{config}.json" not in configs:
-    print(f"Config '{config}' not found. Please enter a valid config.")
-    config = input("\nPlease enter the config you want to use: ")
+        while config not in configs:
+            print(f"Config '{config}' not found. Please enter a valid config.")
+            config = input("\nPlease enter the config you want to use: ")
+    elif config not in configs:
+        print(f"Error: Config '{config}' not found in profile '{profile}'.")
+        exit(1)
 
-config_file_path = os.path.join("profiles", profile, "configs", f"{config}.json")
+    return config
 
-config_dict = json.load(open(config_file_path))
+def setup_paths(profile, config):
+    """Setup and return all necessary paths."""
+    out_path = os.path.join("out", profile, config)
+    out_paths = {
+        'outputs': os.path.join(out_path, "outputs"),
+        'videos': os.path.join(out_path, "videos"),
+        'params': os.path.join(out_path, "params"),
+        'rewarder': os.path.join(out_path, "rewarder"),
+        'generator': os.path.join(out_path, "generator"),
+        'saved_simulations': os.path.join(out_path, "saved_simulations"),
+    }
 
-#--------------- Out Paths ---------------#
-# Setup the out folders (outputs, videos)
-out_path = os.path.join("out", profile, config)
-outputs_path = os.path.join(out_path, "outputs")
-videos_path = os.path.join(out_path, "videos")
-params_path = os.path.join(out_path, "params")
-rewarder_path = os.path.join(out_path, "rewarder")
-generator_path = os.path.join(out_path, "generator")
-saved_simulations_path = os.path.join(out_path, "saved_simulations")
+    # Create all directories
+    for path in out_paths.values():
+        os.makedirs(path, exist_ok=True)
 
-out_paths = {
-    'outputs': outputs_path,
-    'videos': videos_path,
-    'params': params_path,
-    'rewarder': rewarder_path,
-    'generator': generator_path,
-    'saved_simulations': saved_simulations_path,
-}
+    return out_path, out_paths
 
-os.makedirs(out_path, exist_ok=True)
-os.makedirs(outputs_path, exist_ok=True)
-os.makedirs(videos_path, exist_ok=True)
-os.makedirs(params_path, exist_ok=True)
-os.makedirs(rewarder_path, exist_ok=True)
-os.makedirs(generator_path, exist_ok=True)
-os.makedirs(saved_simulations_path, exist_ok=True)
-
-
-#--------------- Loading ---------------#
-loader = profile_module.Loader()
-
-#--------------- Data Managers ---------------#
-dataset_path = os.path.join(out_path, "dataset.csv")
-pairs_path = os.path.join(out_path, "pairs.csv")
-
-
-
-
-
-
-#-------- Menu System --------#
 def print_menu():
     print("\nAlifeHub - Main Menu")
     print("1. Label videos (needs GUI)")
@@ -103,6 +89,37 @@ def print_menu():
     return input("Please choose an option (1-4): ")
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='AlifeHub CLI')
+    parser.add_argument('--profile', type=str, help='Profile name to use')
+    parser.add_argument('--config', type=str, help='Config name to use')
+    args = parser.parse_args()
+
+    # Select profile and config
+    profile = select_profile(args.profile)
+    config = select_config(profile, args.config)
+
+    print(f"Using profile: {profile}, config: {config}.")
+
+    # Load the profile module
+    try:
+        profile_module = __import__(f"profiles.{profile}", fromlist=[profile])
+    except Exception as e:
+        print(f"Error loading profile '{profile}': {str(e)}")
+        exit(1)
+
+    # Load the config
+    config_file_path = os.path.join("profiles", profile, "configs", f"{config}.json")
+    config_dict = json.load(open(config_file_path))
+
+    # Setup paths
+    out_path, out_paths = setup_paths(profile, config)
+    dataset_path = os.path.join(out_path, "dataset.csv")
+    pairs_path = os.path.join(out_path, "pairs.csv")
+
+    # Main loop
+    loader = profile_module.Loader()
+    
     while True:
         print("Loading the generator, rewarder and simulator, building the data managers")
         generator, rewarder, simulator = loader.load(out_paths, config_dict)
@@ -110,7 +127,6 @@ def main():
         pairs_manager = PairsManager(pairs_path)
         print()
 
-        # Launch the menu
         choice = print_menu()
         
         if choice == "1":

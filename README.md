@@ -22,7 +22,8 @@ The parameters of the functions to implement **must not be changed**, as the pip
 The rest is free to implement as your convenience, using the file architecture you want !
 
 An example is provided with the `lenia` profile. Note that the files structure is not mandatory, only the `__init__.py` should be present.
-Then, by running the main, the full pipeline is launched and the training starts.  
+Then, by running the main, the full pipeline is launched and the training starts !  
+*N.B: uppon running `python main.py`, you will be prompted to select a profile and a config. But you can pass them by arguments: `python main.py --profile lenia --config default`* 
 
 
 The pipeline is divided in three categories:
@@ -33,7 +34,6 @@ The pipeline is divided in three categories:
 Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.
 
 # WIP
-- Make profile & config passable in arguments
 - Test implementation of GoL
 - Correct the requirements.txt
 - Profile & out downloading and sharing
