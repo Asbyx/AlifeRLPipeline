@@ -1,7 +1,6 @@
 import os
 import itertools    
 from typing import TYPE_CHECKING, List, Any, Callable
-import numpy as np
 if TYPE_CHECKING:
     from rlhfalife.utils import Simulator, Rewarder
     from rlhfalife.data_managers import DatasetManager, PairsManager, TrainingDataset
@@ -23,7 +22,7 @@ class Generator:
             nb_params: Number of different parameters to generate
 
         Returns:
-            A list of parameters, of length nb_params. The parameters themselfs can be anything.
+            A list of parameters, of length nb_params. The parameters themselfs can be anything that can be converted to a string (override the __str__ method if needed).
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
@@ -237,11 +236,11 @@ class Simulator:
         params = self.generator.generate(nb_params)
 
         # check if two params are the same
-        if any(np.array_equal(params[i], params[j]) for i in range(len(params)) for j in range(i+1, len(params))):
+        if any(str(params[i]) == str(params[j]) for i in range(len(params)) for j in range(i+1, len(params))):
             print("\n" + "="*50)
             print("!!! WARNING !!!: Generator generated at least two identical parameters.")
             # filter out the identical parameters
-            params = [params[i] for i in range(len(params)) if not any(np.array_equal(params[i], params[j]) for j in range(i+1, len(params)))]
+            params = [params[i] for i in range(len(params)) if not any(str(params[i]) == str(params[j]) for j in range(i+1, len(params)))]
             print(f"Unique parameters: {len(params)}, over {nb_params} generated.")
             print("="*50 + "\n")
 

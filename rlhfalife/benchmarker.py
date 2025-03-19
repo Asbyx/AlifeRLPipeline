@@ -6,7 +6,6 @@ import threading
 import cv2
 from PIL import Image, ImageTk
 import shutil
-import numpy as np
 
 class BenchmarkApp:
     def __init__(self, master: tk.Tk, simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
@@ -81,11 +80,11 @@ class BenchmarkApp:
         self.params = self.generator.generate(10)
 
         # check if two params are the same
-        if any(np.array_equal(self.params[i], self.params[j]) for i in range(len(self.params)) for j in range(i+1, len(self.params))):
+        if any(str(self.params[i]) == str(self.params[j]) for i in range(len(self.params)) for j in range(i+1, len(self.params))):
             print("\n" + "="*50)
             print("!!! WARNING !!!: Generator generated at least two identical parameters.")
             # filter out the identical parameters
-            self.params = [self.params[i] for i in range(len(self.params)) if not any(np.array_equal(self.params[i], self.params[j]) for j in range(i+1, len(self.params)))]
+            self.params = [self.params[i] for i in range(len(self.params)) if not any(str(self.params[i]) == str(self.params[j]) for j in range(i+1, len(self.params)))]
             print(f"Unique parameters: {len(self.params)}, over 10 generated.")
             print("="*50 + "\n")
 
