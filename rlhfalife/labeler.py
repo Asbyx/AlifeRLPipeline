@@ -152,7 +152,7 @@ class VideoLabelerApp:
             return
         
         # Update the pair info label
-        self.pair_info_label.config(text=f"Pair {self.pairs_manager.get_nb_ranked_pairs()} of {self.pairs_manager.get_nb_pairs()}")
+        self.pair_info_label.config(text=f"Pair {self.pairs_manager.get_nb_ranked_pairs()} of {self.pairs_manager.get_nb_pairs()}: {self.hash1} vs {self.hash2}")
         
         # Start playing the videos
         self.play_videos()
@@ -186,6 +186,8 @@ class VideoLabelerApp:
         """Handle errors during generation"""
         loading_screen.close()
         messagebox.showerror("Error", f"An error occurred during pair generation.")
+        self.master.quit()
+        self.master.destroy()
 
     def play_videos(self):
         """Start playing the videos."""

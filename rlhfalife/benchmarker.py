@@ -6,7 +6,7 @@ import threading
 import cv2
 from PIL import Image, ImageTk
 import shutil
-
+import numpy as np
 class BenchmarkApp:
     def __init__(self, master: tk.Tk, simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
         """
@@ -79,6 +79,13 @@ class BenchmarkApp:
         self.update_status("Generating parameters...")
         self.params = self.generator.generate(10)
 
+        # check if two params are the same
+        if any(np.array_equal(self.params[i], self.params[j]) for i in range(len(self.params)) for j in range(i+1, len(self.params))):
+            print(f"Warning: Generator generated at least two identical parameters.")
+            # filter out the identical parameters
+            self.params = [self.params[i] for i in range(len(self.params)) if not any(np.array_equal(self.params[i], self.params[j]) for j in range(i+1, len(self.params)))]
+            print(f"Unique parameters: {len(self.params)}, over 10 generated.")
+
         self.update_status("Running simulators...")
         outputs = self.simulator.run(self.params)
         
@@ -112,6 +119,8 @@ class BenchmarkApp:
         ret, frame = self.cap.read()
         if ret:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Resize frame to 300x300 to match the labeler.py dimensions
+            frame = cv2.resize(frame, (300, 300))
             img = ImageTk.PhotoImage(Image.fromarray(frame))
             self.video_label.config(image=img)
             self.video_label.image = img
@@ -152,7 +161,7 @@ class BenchmarkApp:
                 os.remove(video_path)
             except Exception as e:
                 print(f"Error deleting {video_path}: {e}")
-        print("Deleted all videos")
+        print("Deleted all videos from the benchmark.")
 
         # Ask if user wants to save the generator and rewarder
         save_generator = messagebox.askyesno("Save Generator", "Do you want to save the generator?")
