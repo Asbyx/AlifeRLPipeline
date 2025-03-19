@@ -16,7 +16,7 @@ class Loader(rlhfalife.utils.Loader):
         device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
         print("Initializing rewarder...")
-        rewarder = Lenia_Rewarder(device=device)
+        rewarder = Lenia_Rewarder(device=device, save_path=out_paths["rewarder"])
         if os.path.exists(out_paths["rewarder"]+"/rewarder.pth"):
             print("Loading existing rewarder model...")
             rewarder.load(out_paths["rewarder"])
