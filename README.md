@@ -1,4 +1,4 @@
-# Alife RLH pipeline _WIP_
+# Alife RLH pipeline
 The idea of the app is to be a pipeline applying RLHF to train a model for generating interesting simulation parameters.
 
 The pipeline is a loop of 4 stages:
@@ -34,7 +34,6 @@ The pipeline is divided in three categories:
 Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.
 
 # WIP
-- Test implementation of GoL
 - Correct the requirements.txt
 - Profile & out downloading and sharing
 - Propose to reload everything (after modification for example)

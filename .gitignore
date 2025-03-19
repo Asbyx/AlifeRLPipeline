@@ -1,6 +1,7 @@
-.old/
-out/
-alifehub/
+# Authorize only rlhfalife folder and profiles/lenia folder
+*/
+!rlhfalife/
+!profiles/lenia/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
