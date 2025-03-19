@@ -414,7 +414,7 @@ class TrainingDataset:
     def __init__(self, pairs_manager: PairsManager, dataset_manager: DatasetManager):
         """
         Initialize the TrainingDataset.
-        This dataset delivers triplets of (path_to_output_1, path_to_output_2, winner). The pairs are all ranked.
+        This dataset delivers triplets of (path_to_output_1, path_to_output_2, winner). The pairs are all ranked. The load of the outputs is expected to be done in the Rewarder, from the paths given by the TrainingDataset.
 
         Args:
             pairs_manager: The pairs manager
