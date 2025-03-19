@@ -1,7 +1,7 @@
 import os
 import itertools    
 from typing import TYPE_CHECKING, List, Any, Callable
-
+import numpy as np
 if TYPE_CHECKING:
     from rlhfalife.utils import Simulator, Rewarder
     from rlhfalife.data_managers import DatasetManager, PairsManager, TrainingDataset
@@ -164,6 +164,8 @@ class Simulator:
         Example usage:
             save_output(output, "out/profile/outputs/output_number1")
             It is expected that the output will be saved in "out/profile/outputs/output_number1<extension chosen by the user>"
+
+        Note: we do not ask for a load_output method, as the the loading of the outputs cannot be automated, since those outputs can be very big data. Therefore we let the user implement the loading in the Rewarder, from the paths given by the TrainingDataset.
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
@@ -233,6 +235,16 @@ class Simulator:
         # Generate parameters
         report_progress("Generating parameters...")
         params = self.generator.generate(nb_params)
+
+        # check if two params are the same
+        if any(np.array_equal(params[i], params[j]) for i in range(len(params)) for j in range(i+1, len(params))):
+            print("\n" + "="*50)
+            print("!!! WARNING !!!: Generator generated at least two identical parameters.")
+            # filter out the identical parameters
+            params = [params[i] for i in range(len(params)) if not any(np.array_equal(params[i], params[j]) for j in range(i+1, len(params)))]
+            print(f"Unique parameters: {len(params)}, over {nb_params} generated.")
+            print("="*50 + "\n")
+
         hashs = [str(h) for h in self.generator.hash_params(params)]
 
         # Run simulations
