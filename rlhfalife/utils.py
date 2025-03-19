@@ -65,7 +65,10 @@ class Generator:
         Returns:
             A list of hashes of the parameters
         """
-        return [hash(param) for param in params]
+        try:
+            return [hash(param) for param in params]
+        except:
+            raise Exception("Parameters have an unhashable type. Please override the hash_params method in the Generator class.")
 
 
 

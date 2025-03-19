@@ -17,7 +17,7 @@ One must implement a **python package**, containing a `Simulator`, a `Generator`
 The parameters of the functions to implement **must not be changed**, as the pipeline make automated calls to them. But, one can define the `__init__` as they want, as long as the super is also called. That way, one can add the attributes they want to their object. The initialization of the objects is fully handled by the user through the `Loader`. One can also create functions called by other components.   
 
 **The only 2 requirements of the package** are: 
-- Have a `Loader` (abstract still available in `rlhfalife.utils.py`), which is made available through an `__init__.py` file in the package.  
+- Have a `Loader` (abstract still available in `rlhfalife.utils.py`, and should be named `Loader` as well), which is made available through an `__init__.py` file in the package.  
 - Have a `configs` folder containing `json` config files, that will be passed to your `Loader`, with which you can setup your `Simulator`, a `Generator` and a `Rewarder` as you wish.     
 The rest is free to implement as your convenience, using the file architecture you want !
 
@@ -33,6 +33,8 @@ The pipeline is divided in three categories:
 Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.
 
 # WIP
+- Make profile & config passable in arguments
+- Test implementation of GoL
 - Correct the requirements.txt
 - Profile & out downloading and sharing
 - Propose to reload everything (after modification for example)

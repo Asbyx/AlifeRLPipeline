@@ -173,7 +173,7 @@ class VideoLabelerApp:
             self.pairs_manager,
             self.verbose,
             on_complete=lambda: self.on_generation_complete(loading_screen),
-            on_error=lambda error_message: self.on_generation_error(loading_screen, error_message)
+            on_error=lambda: self.on_generation_error(loading_screen)
         )
 
     def on_generation_complete(self, loading_screen):
@@ -182,10 +182,10 @@ class VideoLabelerApp:
         self.update_progress_percentage()
         self.load_next_videos()
         
-    def on_generation_error(self, loading_screen, error_message):
+    def on_generation_error(self, loading_screen):
         """Handle errors during generation"""
         loading_screen.close()
-        messagebox.showerror("Error", f"An error occurred during pair generation:\n{error_message}")
+        messagebox.showerror("Error", f"An error occurred during pair generation.")
 
     def play_videos(self):
         """Start playing the videos."""
@@ -481,7 +481,99 @@ class LoadingScreen:
                 if on_complete:
                     self.master.after(0, on_complete)
             except Exception as e:
+                import traceback
+                import sys
+                
+                # Get the full traceback
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+                
+                # Get simulator state information
+                simulator_info = f"Simulator Configuration:\n"
+                simulator_info += f"- Type: {type(simulator).__name__}\n"
+                for attr in dir(simulator):
+                    if not attr.startswith('_'):  # Only show public attributes
+                        try:
+                            value = getattr(simulator, attr)
+                            if not callable(value):  # Skip methods
+                                simulator_info += f"- {attr}: {value}\n"
+                        except Exception:
+                            pass  # Skip attributes that can't be accessed
+                
+                # Get dataset and pairs manager state
+                dataset_info = f"\nDataset Manager State:\n"
+                dataset_info += f"- Total simulations: {len(dataset_manager)}\n"
+                pairs_info = f"\nPairs Manager State:\n"
+                pairs_info += f"- Total pairs: {pairs_manager.get_nb_pairs()}\n"
+                pairs_info += f"- Ranked pairs: {pairs_manager.get_nb_ranked_pairs()}\n"
+                
+                # Combine all debug information
+                debug_info = (
+                    f"Error Details:\n"
+                    f"{'='*50}\n"
+                    f"{str(e)}\n\n"
+                    f"Full Traceback:\n"
+                    f"{'='*50}\n"
+                    f"{tb_str}\n\n"
+                    f"State Information:\n"
+                    f"{'='*50}\n"
+                    f"{simulator_info}\n"
+                    f"{dataset_info}\n"
+                    f"{pairs_info}"
+                )
+                
                 if on_error:
-                    self.master.after(0, lambda: on_error(str(e)))
+                    self.master.after(0, lambda: self.show_error_dialog(debug_info))
+                    self.master.after(0, lambda: on_error())
         
         threading.Thread(target=run_generation).start()
+    
+    def show_error_dialog(self, debug_info):
+        """Show a detailed error dialog with debug information."""
+        error_window = tk.Toplevel(self.master)
+        error_window.title("Error Details")
+        error_window.geometry("800x600")
+        
+        # Make it modal
+        error_window.transient(self.master)
+        error_window.grab_set()
+        
+        # Add a frame for the content
+        frame = ttk.Frame(error_window, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Add a label at the top
+        ttk.Label(frame, text="An error occurred during pair generation. Details below:", 
+                 wraplength=780).pack(pady=(0, 10))
+        
+        # Create text widget with scrollbar
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar.config(command=text_widget.yview)
+        
+        # Insert the debug information
+        text_widget.insert(tk.END, debug_info)
+        text_widget.config(state=tk.DISABLED)  # Make read-only
+        
+        # Add buttons at the bottom
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(pady=10)
+        
+        # Copy button
+        def copy_to_clipboard():
+            error_window.clipboard_clear()
+            error_window.clipboard_append(debug_info)
+            error_window.update()
+        
+        ttk.Button(button_frame, text="Copy to Clipboard", 
+                  command=copy_to_clipboard).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(button_frame, text="Close", 
+                  command=error_window.destroy).pack(side=tk.LEFT, padx=5)

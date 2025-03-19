@@ -201,6 +201,12 @@ class DatasetManager:
                 video_path=video_paths[i]
             )
 
+    def __len__(self) -> int:
+        """
+        Get the number of entries in the dataset.
+        """
+        return len(self.data_df)
+
 
 class PairsManager:
     """
