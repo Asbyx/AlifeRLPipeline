@@ -185,9 +185,8 @@ class VideoLabelerApp:
     def on_generation_error(self, loading_screen):
         """Handle errors during generation"""
         loading_screen.close()
-        messagebox.showerror("Error", f"An error occurred during pair generation.")
-        self.master.quit()
-        self.master.destroy()
+        # Do nothing here - the error dialog will handle closing the application
+        pass
 
     def play_videos(self):
         """Start playing the videos."""
@@ -355,6 +354,62 @@ class VideoLabelerApp:
             # If user cancels, just update the UI
             self.update_progress_percentage()
             self.load_next_videos()
+
+    def show_error_dialog(self, debug_info):
+        """Show a detailed error dialog with debug information."""
+        error_window = tk.Toplevel(self.master)
+        error_window.title("Error Details")
+        error_window.geometry("800x600")
+        
+        # Make it modal
+        error_window.transient(self.master)
+        error_window.grab_set()
+        
+        # Add a frame for the content
+        frame = ttk.Frame(error_window, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Add a label at the top
+        ttk.Label(frame, text="An error occurred during pair generation. Details below:", 
+                 wraplength=780).pack(pady=(0, 10))
+        
+        # Create text widget with scrollbar
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar.config(command=text_widget.yview)
+        
+        # Insert the debug information
+        text_widget.insert(tk.END, debug_info)
+        text_widget.config(state=tk.DISABLED)  # Make read-only
+        
+        # Add buttons at the bottom
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(pady=10)
+        
+        # Copy button
+        def copy_to_clipboard():
+            error_window.clipboard_clear()
+            error_window.clipboard_append(debug_info)
+            error_window.update()
+        
+        ttk.Button(button_frame, text="Copy to Clipboard", 
+                  command=copy_to_clipboard).pack(side=tk.LEFT, padx=5)
+        
+        # Close button that will exit the application when clicked
+        def close_and_exit():
+            error_window.destroy()
+            self.master.quit()
+            self.master.destroy()
+            
+        ttk.Button(button_frame, text="Close", 
+                  command=close_and_exit).pack(side=tk.LEFT, padx=5)
 
 class LoadingScreen:
     def __init__(self, master, title="Generating Pairs"):
@@ -577,5 +632,11 @@ class LoadingScreen:
         ttk.Button(button_frame, text="Copy to Clipboard", 
                   command=copy_to_clipboard).pack(side=tk.LEFT, padx=5)
         
+        # Close button that will exit the application when clicked
+        def close_and_exit():
+            error_window.destroy()
+            self.master.quit()
+            self.master.destroy()
+            
         ttk.Button(button_frame, text="Close", 
-                  command=error_window.destroy).pack(side=tk.LEFT, padx=5)
+                  command=close_and_exit).pack(side=tk.LEFT, padx=5)
