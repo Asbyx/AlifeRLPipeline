@@ -34,6 +34,5 @@ The pipeline is divided in three categories:
 Everything is saved in `out/<profile>/<config>/`. That way you can recover parameters, outputs and videos easily.
 
 # WIP
-- Correct the requirements.txt
 - Profile & out downloading and sharing
 - Propose to reload everything (after modification for example)
