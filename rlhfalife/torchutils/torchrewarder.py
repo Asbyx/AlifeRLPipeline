@@ -152,16 +152,12 @@ class TorchRewarder(nn.Module, Rewarder):
         super().train(False)
         with torch.no_grad():
             for batch_data1, batch_data2, batch_winners in dataset_batches:
-                # Stack tensors in each batch
-                data1_tensor = torch.stack(batch_data1)
-                data2_tensor = torch.stack(batch_data2)
-                
                 # Prepare target for margin ranking loss
                 y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
                 
                 # Get predictions
-                scores1 = self(data1_tensor)
-                scores2 = self(data2_tensor)
+                scores1 = self(batch_data1)
+                scores2 = self(batch_data2)
                 
                 # Compute loss
                 loss = F.margin_ranking_loss(scores1, scores2, y, margin=0.1)
@@ -226,17 +222,13 @@ class TorchRewarder(nn.Module, Rewarder):
             random.shuffle(train_indices)
             
             # Get batches for training
-            for batch_data1, batch_data2, batch_winners in self._get_batches(dataset, train_indices, batch_size):
-                # Stack tensors in each batch
-                data1_tensor = torch.stack(batch_data1)
-                data2_tensor = torch.stack(batch_data2)
-                
+            for batch_data1, batch_data2, batch_winners in self._get_batches(dataset, train_indices, batch_size):             
                 # Prepare target for margin ranking loss
                 y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
                 
                 # Get predictions
-                scores1 = self(data1_tensor)
-                scores2 = self(data2_tensor)
+                scores1 = self(batch_data1)
+                scores2 = self(batch_data2)
                 
                 # Compute loss
                 loss = F.margin_ranking_loss(scores1, scores2, y, margin=0.1)
