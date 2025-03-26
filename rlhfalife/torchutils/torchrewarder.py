@@ -48,6 +48,20 @@ class TorchRewarder(nn.Module, Rewarder):
             Output tensor, shape (batch_size)
         """
         raise NotImplementedError("Forward method must be implemented by child classes")
+    
+    def preprocess(self, data):
+        """
+        Preprocess the data. Not required to be implemented by child classes.
+        This method is used to preprocess the data before it is passed to the forward method.
+
+        Args:
+            data: Output data from simulator
+            
+        Returns:
+            Preprocessed data ready for forward pass.
+        """
+        return data
+    
     #-------- End of methods to implement --------#
 
     def _setup_optimizer(self):
@@ -65,6 +79,8 @@ class TorchRewarder(nn.Module, Rewarder):
         Returns:
             List of float rewards for each input
         """
+        data = self.preprocess(data)
+
         # Make the data a torch tensor
         if isinstance(data, torch.Tensor):
             data = data.to(self.device)
@@ -108,6 +124,10 @@ class TorchRewarder(nn.Module, Rewarder):
             # Load the actual data from the paths
             data1 = [torch.load(path, map_location=self.device) for path in path1s]
             data2 = [torch.load(path, map_location=self.device) for path in path2s]
+
+            # Preprocess the data
+            data1 = self.preprocess(data1)
+            data2 = self.preprocess(data2)
             
             if not isinstance(data1[0], torch.Tensor):
                 raise ValueError("The outputs are not saved as torch tensors. Please save the outputs as torch tensors using torch.save. Note: numpy arrays saved with torch.save will still be saved as numpy arrays.")
@@ -159,7 +179,7 @@ class TorchRewarder(nn.Module, Rewarder):
         
         return avg_loss, accuracy
     
-    def train(self, dataset):
+    def train(self, dataset: TrainingDataset):
         """
         Train the model on the dataset of pairs.
         
