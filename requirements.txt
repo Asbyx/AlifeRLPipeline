@@ -1,13 +1,5 @@
-os
-json
-argparse
-tkinter
-threading
-opencv-python
-pillow
-shutil
 numpy
-itertools    
-typing
+opencv_python
 pandas
-rlhfalife
+Pillow
+torch

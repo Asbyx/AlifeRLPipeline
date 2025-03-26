@@ -8,7 +8,7 @@ import threading
 from rlhfalife.utils import Simulator
 from rlhfalife.data_managers import DatasetManager, PairsManager
 
-def launch_video_labeler(simulator: Simulator, dataset_manager: DatasetManager, pairs_manager: PairsManager, verbose: bool = False) -> None:
+def launch_video_labeler(simulator: Simulator, dataset_manager: DatasetManager, pairs_manager: PairsManager, verbose: bool = False, frame_size: tuple = (300, 300)) -> None:
     """
     Launch the video labeler app.
     
@@ -17,17 +17,18 @@ def launch_video_labeler(simulator: Simulator, dataset_manager: DatasetManager, 
         dataset_manager: DatasetManager instance for storing simulation data
         pairs_manager: PairsManager instance for storing pairs
         verbose: Whether to print verbose output
+        frame_size: Tuple of (width, height) for video frames
     
     Note: executes in the main thread.
     """
     root = tk.Tk()
-    app = VideoLabelerApp(root, simulator, dataset_manager, pairs_manager, verbose)
+    app = VideoLabelerApp(root, simulator, dataset_manager, pairs_manager, verbose, frame_size)
     root.protocol("WM_DELETE_WINDOW", app.save_and_exit)
     root.mainloop()
 
 class VideoLabelerApp:
     def __init__(self, master: tk.Tk, simulator: Simulator, dataset_manager: DatasetManager, 
-                 pairs_manager: PairsManager, verbose: bool = False) -> None:
+                 pairs_manager: PairsManager, verbose: bool = False, frame_size: tuple = (300, 300)) -> None:
         """
         Initialize the video labeler app
 
@@ -37,11 +38,13 @@ class VideoLabelerApp:
             dataset_manager: DatasetManager instance for storing simulation data
             pairs_manager: PairsManager instance for storing pairs
             verbose: Whether to print verbose output
+            frame_size: Tuple of (width, height) for video frames
         """
         self.simulator = simulator
         self.dataset_manager = dataset_manager
         self.pairs_manager = pairs_manager
         self.verbose = verbose
+        self.frame_size = frame_size
         
         self.master = master
         self.after_id = None
@@ -215,8 +218,8 @@ class VideoLabelerApp:
             frame2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB)
             
             # Resize frames if needed
-            frame1 = cv2.resize(frame1, (300, 300))
-            frame2 = cv2.resize(frame2, (300, 300))
+            frame1 = cv2.resize(frame1, self.frame_size)
+            frame2 = cv2.resize(frame2, self.frame_size)
             
             # Convert to PIL Image
             img1 = Image.fromarray(frame1)

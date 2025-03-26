@@ -93,13 +93,14 @@ def main():
     parser = argparse.ArgumentParser(description='AlifeHub CLI')
     parser.add_argument('--profile', type=str, help='Profile name to use')
     parser.add_argument('--config', type=str, help='Config name to use')
+    parser.add_argument('--frame_size', type=int, default=300, help='Frame size to use')
     args = parser.parse_args()
 
     # Select profile and config
     profile = select_profile(args.profile)
     config = select_config(profile, args.config)
 
-    print(f"Using profile: {profile}, config: {config}.")
+    print(f"Using profile: {profile}, config: {config}, frame size: {args.frame_size}.")
 
     # Load the profile module
     try:
@@ -130,7 +131,7 @@ def main():
         choice = print_menu()
         
         if choice == "1":
-            launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False)
+            launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
         elif choice == "2":
             launch_benchmarker(simulator, generator, rewarder, out_paths)
         elif choice == "3":
