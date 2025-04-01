@@ -356,7 +356,7 @@ class TorchRewarder(nn.Module, Rewarder):
         best_overall_val_loss = float('inf')
         best_overall_model_state = None
 
-        print(f"Training on {dataset_size} samples with {num_folds} validation folds.")
+        print(f"Training on {dataset_size} pairs, for {dataset.simulations_number} simulations, with {num_folds} validation folds.")
         
         # Training loop for each fold
         for fold in range(num_folds):

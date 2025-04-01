@@ -123,15 +123,15 @@ def main():
     loader = profile_module.Loader()
     
     while True:
-        print("Loading the generator, rewarder and simulator, building the data managers")
+        print("Loading the generator, rewarder and simulator...")
         generator, rewarder, simulator = loader.load(out_paths, config_dict)
+        
+        print("\nBuilding the data managers...")
         dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
         pairs_manager = PairsManager(pairs_path)
+        print(f"Number of simulations: {len(dataset_manager)}")
         print(f"Number of ranked pairs: {pairs_manager.get_nb_ranked_pairs()}")
         
-        # clear
-        print()
-
         choice = print_menu()
         
         if choice == "1":

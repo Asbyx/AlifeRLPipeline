@@ -278,7 +278,7 @@ class VideoLabelerApp:
         """Update the progress percentage label."""
         nb_pairs = self.pairs_manager.get_nb_pairs()
         nb_ranked_pairs = self.pairs_manager.get_nb_ranked_pairs()
-        self.progress_label.config(text=f"Progress: {((nb_ranked_pairs) / nb_pairs) * 100 if nb_pairs > 0 else 0:.1f}% ({nb_ranked_pairs}/{nb_pairs})")
+        self.progress_label.config(text=f"Progress: {((nb_ranked_pairs) / nb_pairs) * 100 if nb_pairs > 0 else 0:.1f}% ({nb_ranked_pairs}/{nb_pairs}). Number of simulations: {len(self.dataset_manager)}")
 
     def save_and_exit(self):
         # Release video resources if they exist
