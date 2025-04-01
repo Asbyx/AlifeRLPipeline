@@ -8,6 +8,7 @@ import random
 import numpy as np
 from ..data_managers import TrainingDataset
 import wandb
+import hashlib
 
 class TorchRewarder(nn.Module, Rewarder):
     """
@@ -124,13 +125,9 @@ class TorchRewarder(nn.Module, Rewarder):
             # Unpack the batch data
             path1s, path2s, winners = zip(*batch_data)
             
-            # Load the actual data from the paths
-            data1 = [torch.load(path, map_location=self.device) for path in path1s]
-            data2 = [torch.load(path, map_location=self.device) for path in path2s]
-
-            # Preprocess the data
-            data1 = self.preprocess(data1)
-            data2 = self.preprocess(data2)
+            # Load and preprocess the data using caching
+            data1 = [self._load_or_preprocess(path) for path in path1s]
+            data2 = [self._load_or_preprocess(path) for path in path2s]
             
             if not isinstance(data1[0], torch.Tensor):
                 raise ValueError("The outputs are not saved as torch tensors. Please save the outputs as torch tensors using torch.save. Note: numpy arrays saved with torch.save will still be saved as numpy arrays.")
@@ -454,3 +451,48 @@ class TorchRewarder(nn.Module, Rewarder):
             print(f"No model found at {self.model_path}, using initialized model")
             
         return self
+
+    def _get_preprocessed_path(self, data_path: str) -> str:
+        """
+        Get the path where the preprocessed version of a file should be stored.
+        
+        Args:
+            data_path: Original data file path
+            
+        Returns:
+            Path where preprocessed version should be stored
+        """
+        # Create temp directory next to model path if it doesn't exist
+        model_dir = os.path.dirname(self.model_path)
+        preprocessed_dir = os.path.join(model_dir, "preprocessed_temp")
+        os.makedirs(preprocessed_dir, exist_ok=True)
+        
+        # Create unique filename based on original path and last modified time
+        file_stat = os.stat(data_path)
+        unique_id = f"{data_path}_{file_stat.st_mtime}"
+        filename_hash = hashlib.md5(unique_id.encode()).hexdigest()
+        
+        return os.path.join(preprocessed_dir, f"{filename_hash}.pt")
+    
+    def _load_or_preprocess(self, data_path: str) -> torch.Tensor:
+        """
+        Load preprocessed data if it exists, otherwise preprocess and save.
+        
+        Args:
+            data_path: Path to the original data file
+            
+        Returns:
+            Preprocessed data as torch tensor
+        """
+        preprocessed_path = self._get_preprocessed_path(data_path)
+        
+        # If preprocessed file exists and is newer than original, load it
+        if os.path.exists(preprocessed_path):
+            if os.path.getmtime(preprocessed_path) >= os.path.getmtime(data_path):
+                return torch.load(preprocessed_path, map_location=self.device)
+        
+        # Otherwise preprocess and save
+        data = torch.load(data_path, map_location=self.device)
+        preprocessed_data = self.preprocess([data])[0]
+        torch.save(preprocessed_data, preprocessed_path)
+        return preprocessed_data
