@@ -134,7 +134,7 @@ def main():
         if choice == "1":
             launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
         elif choice == "2":
-            launch_benchmarker(simulator, generator, rewarder, out_paths)
+            launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
         elif choice == "3":
             launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
         elif choice == "4":

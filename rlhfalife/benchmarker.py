@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 import shutil
 
 class BenchmarkApp:
-    def __init__(self, master: tk.Tk, simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
+    def __init__(self, master: tk.Tk, simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict, frame_size: tuple = (300, 300)) -> None:
         """
         Initialize the benchmarker
 
@@ -18,12 +18,14 @@ class BenchmarkApp:
             generator: The generator to use
             rewarder: The rewarder to use
             out_paths: The paths to the outputs
+            frame_size: Tuple of (width, height) for video frames
         """
         self.master = master
         self.simulator = simulator
         self.generator = generator
         self.rewarder = rewarder
         self.out_paths = out_paths
+        self.frame_size = frame_size
         self.scores = []
         self.videos = []
         self.params = []
@@ -121,8 +123,8 @@ class BenchmarkApp:
         ret, frame = self.cap.read()
         if ret:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # Resize frame to 300x300 to match the labeler.py dimensions
-            frame = cv2.resize(frame, (300, 300))
+            # Resize frame to match the specified frame size
+            frame = cv2.resize(frame, self.frame_size)
             img = ImageTk.PhotoImage(Image.fromarray(frame))
             self.video_label.config(image=img)
             self.video_label.image = img
@@ -178,7 +180,7 @@ class BenchmarkApp:
         self.master.destroy()
 
 
-def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict) -> None:
+def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict, frame_size: tuple = (300, 300)) -> None:
     """
     Launch the benchmarker
 
@@ -187,7 +189,8 @@ def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rew
         generator: The generator to use
         rewarder: The rewarder to use
         out_paths: The paths to the outputs
+        frame_size: Tuple of (width, height) for video frames
     """
     root = tk.Tk()
-    app = BenchmarkApp(root, simulator, generator, rewarder, out_paths)
+    app = BenchmarkApp(root, simulator, generator, rewarder, out_paths, frame_size)
     root.mainloop()
