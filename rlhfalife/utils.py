@@ -1,6 +1,6 @@
 import os
 import itertools    
-from typing import TYPE_CHECKING, List, Any, Callable
+from typing import TYPE_CHECKING, List, Any, Callable, Tuple
 if TYPE_CHECKING:
     from rlhfalife.utils import Simulator, Rewarder
     from rlhfalife.data_managers import DatasetManager, PairsManager, TrainingDataset
@@ -48,6 +48,43 @@ class Generator:
 
         Returns:
             The loaded generator
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+
+    #-------- Facultative, only used for genetic search --------#
+    def mutation(self, params: List[Any]) -> List[Any]:
+        """
+        Mutate a list of parameters.
+
+        Args:
+            params: List of parameters to mutate
+
+        Returns:
+            The mutated parameters
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+    
+    def crossover(self, pairs: List[Tuple[Any, Any]]) -> List[Any]:
+        """
+        Crossover two lists of parameters.
+
+        Args:
+            pairs: List of pairs of parameters to crossover
+
+        Returns:
+            The crossover parameters
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+    
+    def distance(self, pairs: List[Tuple[Any, Any]]) -> List[float]:
+        """
+        Distance between two lists of parameters.
+
+        Args:
+            pairs: List of pairs of parameters to compute the distance between
+
+        Returns:
+            The distances between the pairs
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
