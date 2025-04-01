@@ -7,6 +7,7 @@ import os
 import random
 import numpy as np
 from ..data_managers import TrainingDataset
+import wandb
 
 class TorchRewarder(nn.Module, Rewarder):
     """
@@ -16,7 +17,7 @@ class TorchRewarder(nn.Module, Rewarder):
 
     Note: using this class assume that the outputs are torch tensors (dtype=torch.float32) saved as pt files, with torch.save.
     """
-    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
+    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", wandb_run: wandb.Run = None):
         """
         Initialize the TorchRewarder.
     
@@ -29,12 +30,14 @@ class TorchRewarder(nn.Module, Rewarder):
                 early_stopping_patience (default 10): Early stopping patience
             model_path: Path to save or load the model
             device: Device to run the model on. Defaults to "cuda" if available, otherwise "cpu".
+            wandb_run: Wandb run to log to. Defaults to None.
         """
         nn.Module.__init__(self)
         self.config = config or {}
         self.device = device
         self.optimizer = None
         self.model_path = model_path
+        self.wandb_run = wandb_run
 
     #-------- Methods to implement --------#
     def forward(self, x):
@@ -255,6 +258,13 @@ class TorchRewarder(nn.Module, Rewarder):
             )
             
             # Report progress
+            if self.wandb_run:
+                self.wandb_run.log({
+                    "train_loss": avg_train_loss,
+                    "train_accuracy": train_accuracy,
+                    "val_loss": val_loss,
+                    "val_accuracy": val_accuracy
+                })
             if epoch % 10 == 0 or epoch == epochs - 1:
                 print(f"Epoch {epoch+1}/{epochs}:")
                 print(f"  Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
