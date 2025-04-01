@@ -97,6 +97,10 @@ class VideoLabelerApp:
         self.right_button = tk.Button(self.button_frame, text="Right Wins", command=self.right_wins)
         self.right_button.pack(side="right")
 
+        # Add generate new pairs button
+        self.generate_button = tk.Button(self.button_frame, text="Generate New Pairs", command=self.generate_new_pairs_dialog)
+        self.generate_button.pack(side="left", padx=5)
+
         # Add reset & regenerate button
         self.reset_frame = tk.Frame(self.master)
         self.reset_frame.pack(pady=5)
@@ -357,6 +361,15 @@ class VideoLabelerApp:
             # If user cancels, just update the UI
             self.update_progress_percentage()
             self.load_next_videos()
+
+    def generate_new_pairs_dialog(self):
+        """Prompt user to generate new pairs without resetting existing ones."""
+        num_pairs = simpledialog.askinteger("Generate New Pairs", 
+                                           "How many new pairs would you like to generate?", 
+                                           minvalue=1, 
+                                           initialvalue=5)
+        if num_pairs:
+            self.generate_new_pairs(num_pairs)
 
     def show_error_dialog(self, debug_info):
         """Show a detailed error dialog with debug information."""

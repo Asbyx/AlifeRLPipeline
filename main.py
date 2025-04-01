@@ -85,8 +85,9 @@ def print_menu():
     print("1. Label videos (needs GUI)")
     print("2. Benchmark rewarder (needs GUI)")
     print("3. Launch training")
-    print("4. Exit")
-    return input("Please choose an option (1-4): ")
+    print("4. Change frame size")
+    print("0. Exit")
+    return input("Please choose an option (0-4): ")
 
 def main():
     # Parse command line arguments
@@ -137,6 +138,16 @@ def main():
         elif choice == "3":
             launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
         elif choice == "4":
+            try:
+                new_size = int(input("Enter new frame size (default: 300): ") or "300")
+                if new_size > 0:
+                    args.frame_size = new_size
+                    print(f"Frame size updated to {new_size}")
+                else:
+                    print("Frame size must be positive")
+            except ValueError:
+                print("Please enter a valid number")
+        elif choice == "0":
             print("Exiting AlifeHub...")
             break
         else:
