@@ -178,14 +178,163 @@ class TorchRewarder(nn.Module, Rewarder):
         
         return avg_loss, accuracy
     
+    def _create_folds(self, dataset_size: int, indices: list, fold_ratio: float = None) -> tuple:
+        """
+        Create training and validation folds based on the fold ratio.
+        
+        Args:
+            dataset_size: Total number of samples in the dataset
+            indices: List of indices to split into folds
+            fold_ratio: Ratio of data to use for validation in each fold
+            
+        Returns:
+            tuple: (fold_train_indices, fold_val_indices, num_folds)
+        """
+        if fold_ratio is None or fold_ratio <= 0:
+            # Original behavior with single validation split
+            val_split = self.config.get('val_split', 0.2)
+            random.shuffle(indices)
+            val_size = int(val_split * dataset_size)
+            return [indices[val_size:]], [indices[:val_size]], 1
+        
+        # Cross validation setup based on fold_ratio
+        num_folds = max(2, round(1 / fold_ratio))  # Limit between 2 and 10 folds
+        fold_size = int(dataset_size * fold_ratio)
+        fold_train_indices = []
+        fold_val_indices = []
+        
+        # Create folds
+        for fold in range(num_folds):
+            val_start = fold * fold_size
+            val_end = val_start + fold_size if fold < num_folds - 1 else dataset_size
+            
+            val_indices = indices[val_start:val_end]
+            train_indices = indices[:val_start] + indices[val_end:]
+            
+            fold_train_indices.append(train_indices)
+            fold_val_indices.append(val_indices)
+        
+        return fold_train_indices, fold_val_indices, num_folds
+
+    def _train_single_batch(self, batch_data1, batch_data2, batch_winners):
+        """
+        Train on a single batch of data.
+        
+        Args:
+            batch_data1: First batch of data
+            batch_data2: Second batch of data
+            batch_winners: Batch of winner labels
+            
+        Returns:
+            tuple: (loss, correct_predictions, total_samples)
+        """
+        # Prepare target for margin ranking loss
+        y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
+        
+        # Get predictions
+        scores1 = self(batch_data1)
+        scores2 = self(batch_data2)
+        
+        # Compute loss
+        loss = F.margin_ranking_loss(scores1, scores2, y, margin=0.1)
+        
+        # Optimize
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        
+        # Calculate metrics
+        predictions = (scores1 > scores2).int() * 2 - 1
+        correct = (predictions == y).sum().item()
+        
+        return loss.item(), correct, len(y)
+
+    def _train_single_epoch(self, train_indices: list, dataset: TrainingDataset, batch_size: int):
+        """
+        Train for a single epoch.
+        
+        Args:
+            train_indices: List of training indices
+            dataset: Training dataset
+            batch_size: Batch size
+            
+        Returns:
+            tuple: (average_loss, accuracy)
+        """
+        total_loss = 0.0
+        correct = 0
+        total = 0
+        batch_count = 0
+        
+        # Shuffle training indices for each epoch
+        random.shuffle(train_indices)
+        
+        # Get batches for training
+        for batch_data1, batch_data2, batch_winners in self._get_batches(dataset, train_indices, batch_size):
+            loss, batch_correct, batch_total = self._train_single_batch(batch_data1, batch_data2, batch_winners)
+            
+            total_loss += loss
+            correct += batch_correct
+            total += batch_total
+            batch_count += 1
+        
+        avg_loss = total_loss / batch_count if batch_count > 0 else 0
+        accuracy = correct / total if total > 0 else 0
+        
+        return avg_loss, accuracy
+
+    def _log_progress(self, fold: int, num_folds: int, epoch: int, epochs: int,
+                     train_loss: float, train_accuracy: float,
+                     val_loss: float, val_accuracy: float):
+        """
+        Log training progress to console and wandb if configured.
+        
+        Args:
+            fold: Current fold number
+            num_folds: Total number of folds
+            epoch: Current epoch number
+            epochs: Total number of epochs
+            train_loss: Training loss
+            train_accuracy: Training accuracy
+            val_loss: Validation loss
+            val_accuracy: Validation accuracy
+        """
+        if self.wandb_run:
+            log_data = {
+                "train_loss": train_loss,
+                "train_accuracy": train_accuracy,
+                "val_loss": val_loss,
+                "val_accuracy": val_accuracy
+            }
+            if num_folds > 1:
+                log_data.update({
+                    "fold": fold + 1,
+                    f"fold_{fold + 1}_train_loss": train_loss,
+                    f"fold_{fold + 1}_val_loss": val_loss
+                })
+            self.wandb_run.log(log_data)
+        
+        if epoch % 10 == 0 or epoch == epochs - 1:
+            fold_info = f"Fold {fold + 1}/{num_folds} - " if num_folds > 1 else ""
+            print(f"{fold_info}Epoch {epoch+1}/{epochs}:")
+            print(f"  Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
+            print(f"  Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
+
     def train(self, dataset: TrainingDataset):
         """
-        Train the model on the dataset of pairs.
+        Train the model on the dataset of pairs using cross validation if specified.
         
         Args:
             dataset: TrainingDataset instance containing pairs of simulations with labels
+            
+        The config can contain:
+            fold_ratio (float, default None): Ratio of data to use for validation in each fold.
+                If None or 0, uses val_split for a single validation set.
+                Otherwise, creates multiple folds where each fold uses this ratio of data for validation.
+                For example, 0.2 means each fold uses 20% of data for validation, resulting in 5 folds.
+            val_split (float, default 0.2): Ratio of data to use for validation when fold_ratio is None.
+            Other parameters remain the same as before.
         """
-        # check that the __init__ method has been called
         if not hasattr(self, 'optimizer'):
             raise ValueError("Optimizer not set up. Call __init__ method at initialization of the child class.")
         
@@ -194,97 +343,69 @@ class TorchRewarder(nn.Module, Rewarder):
         # Training parameters
         batch_size = self.config.get('batch_size', 16)
         epochs = self.config.get('epochs', 100)
-        val_split = self.config.get('val_split', 0.2)
-        early_stopping_patience = self.config.get('early_stopping_patience', 10)
+        fold_ratio = self.config.get('fold_ratio', None)
+        early_stopping_patience = self.config.get('early_stopping_patience', 3)
         
-        # Split dataset into training and validation sets
+        # Create folds
         dataset_size = len(dataset)
         indices = list(range(dataset_size))
-        random.shuffle(indices)
+        fold_train_indices, fold_val_indices, num_folds = self._create_folds(dataset_size, indices, fold_ratio)
         
-        val_size = int(val_split * dataset_size)
-        train_indices = indices[val_size:]
-        val_indices = indices[:val_size]
+        # Track best model across all folds
+        best_overall_val_loss = float('inf')
+        best_overall_model_state = None
         
-        print(f"Training on {len(train_indices)} samples, validating on {len(val_indices)} samples")
-        
-        # Initial model state
-        best_val_loss = float('inf')
-        best_model_state = None
-        patience_counter = 0
-        
-        # Training loop
-        super().train()
-        for epoch in range(epochs):
-            total_train_loss = 0.0
-            train_correct = 0
-            train_total = 0
-            train_batch_count = 0
+        # Training loop for each fold
+        for fold in range(num_folds):
+            if num_folds > 1:
+                print(f"\nTraining Fold {fold + 1}/{num_folds} (validation ratio: {len(fold_val_indices[fold])/dataset_size:.2f})")
             
-            # Shuffle training indices for each epoch
-            random.shuffle(train_indices)
+            train_indices = fold_train_indices[fold]
+            val_indices = fold_val_indices[fold]
             
-            # Get batches for training
-            for batch_data1, batch_data2, batch_winners in self._get_batches(dataset, train_indices, batch_size):             
-                # Prepare target for margin ranking loss
-                y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
+            print(f"Training on {len(train_indices)} samples, validating on {len(val_indices)} samples")
+            
+            # Initial fold state
+            best_val_loss = float('inf')
+            best_model_state = None
+            patience_counter = 0
+            
+            # Training loop for current fold
+            super().train()
+            for epoch in range(epochs):
+                # Train for one epoch
+                train_loss, train_accuracy = self._train_single_epoch(train_indices, dataset, batch_size)
                 
-                # Get predictions
-                scores1 = self(batch_data1)
-                scores2 = self(batch_data2)
+                # Validation phase
+                val_loss, val_accuracy = self._evaluate_dataset(
+                    self._get_batches(dataset, val_indices, batch_size)
+                )
                 
-                # Compute loss
-                loss = F.margin_ranking_loss(scores1, scores2, y, margin=0.1)
+                # Log progress
+                self._log_progress(fold, num_folds, epoch, epochs,
+                                 train_loss, train_accuracy,
+                                 val_loss, val_accuracy)
                 
-                # Optimize
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                
-                # Track metrics
-                total_train_loss += loss.item()
-                predictions = (scores1 > scores2).int() * 2 - 1
-                train_correct += (predictions == y).sum().item()
-                train_total += len(y)
-                train_batch_count += 1
+                # Early stopping and model checkpointing
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_model_state = self.state_dict().copy()
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                    if patience_counter >= early_stopping_patience:
+                        print(f"Early stopping at epoch {epoch+1}")
+                        break
             
-            # Calculate training metrics
-            avg_train_loss = total_train_loss / train_batch_count if train_batch_count > 0 else 0
-            train_accuracy = train_correct / train_total if train_total > 0 else 0
-            
-            # Validation phase
-            val_loss, val_accuracy = self._evaluate_dataset(
-                self._get_batches(dataset, val_indices, batch_size)
-            )
-            
-            # Report progress
-            if self.wandb_run:
-                self.wandb_run.log({
-                    "train_loss": avg_train_loss,
-                    "train_accuracy": train_accuracy,
-                    "val_loss": val_loss,
-                    "val_accuracy": val_accuracy
-                })
-            if epoch % 10 == 0 or epoch == epochs - 1:
-                print(f"Epoch {epoch+1}/{epochs}:")
-                print(f"  Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
-                print(f"  Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
-            
-            # Early stopping and model checkpointing
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_model_state = self.state_dict().copy()
-                patience_counter = 0
-            else:
-                patience_counter += 1
-                if patience_counter >= early_stopping_patience:
-                    print(f"Early stopping at epoch {epoch+1}")
-                    break
+            # Update best overall model if this fold performed better
+            if best_val_loss < best_overall_val_loss:
+                best_overall_val_loss = best_val_loss
+                best_overall_model_state = best_model_state
         
-        # Load best model if available
-        if best_model_state is not None:
-            self.load_state_dict(best_model_state)
-            print(f"Loaded best model with validation loss: {best_val_loss:.4f}")
+        # Load best model across all folds
+        if best_overall_model_state is not None:
+            self.load_state_dict(best_overall_model_state)
+            print(f"Loaded best model with validation loss: {best_overall_val_loss:.4f}")
     
     def save(self):
         """
