@@ -7,9 +7,8 @@ import os
 import random
 import numpy as np
 from ..data_managers import TrainingDataset
-import wandb
 import hashlib
-
+from typing import List, Any
 class TorchRewarder(nn.Module, Rewarder):
     """
     A rewarder that uses a torch model. 
@@ -18,7 +17,7 @@ class TorchRewarder(nn.Module, Rewarder):
 
     Note: using this class assume that the outputs are torch tensors (dtype=torch.float32) saved as pt files, with torch.save.
     """
-    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", wandb_run: wandb.Run = None):
+    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", wandb_run = None):
         """
         Initialize the TorchRewarder.
     
@@ -53,16 +52,15 @@ class TorchRewarder(nn.Module, Rewarder):
         """
         raise NotImplementedError("Forward method must be implemented by child classes")
     
-    def preprocess(self, data):
+    def preprocess(self, data: List[Any]) -> torch.Tensor:
         """
-        Preprocess the data. Not required to be implemented by child classes.
-        This method is used to preprocess the data before it is passed to the forward method.
+        Preprocess the data.
 
         Args:
-            data: Output data from simulator
+            data: List of data to preprocess.
             
         Returns:
-            Preprocessed data ready for forward pass.
+            Preprocessed data ready for forward pass (B, *)
         """
         return data
     
@@ -126,8 +124,8 @@ class TorchRewarder(nn.Module, Rewarder):
             path1s, path2s, winners = zip(*batch_data)
             
             # Load and preprocess the data using caching
-            data1 = [self._load_or_preprocess(path) for path in path1s]
-            data2 = [self._load_or_preprocess(path) for path in path2s]
+            data1 = torch.stack([self._load_or_preprocess(path) for path in path1s])
+            data2 = torch.stack([self._load_or_preprocess(path) for path in path2s])
             
             if not isinstance(data1[0], torch.Tensor):
                 raise ValueError("The outputs are not saved as torch tensors. Please save the outputs as torch tensors using torch.save. Note: numpy arrays saved with torch.save will still be saved as numpy arrays.")
