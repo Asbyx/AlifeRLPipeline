@@ -6,6 +6,7 @@ from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
 from rlhfalife.data_managers import DatasetManager, PairsManager
+from rlhfalife.genetic_search import run_genetic_search
 
 def get_available_profiles():
     """Get list of available profiles."""
@@ -72,6 +73,7 @@ def setup_paths(profile, config):
         'rewarder': os.path.join(out_path, "rewarder"),
         'generator': os.path.join(out_path, "generator"),
         'saved_simulations': os.path.join(out_path, "saved_simulations"),
+        'evolution': os.path.join(out_path, "evolution")
     }
 
     # Create all directories
@@ -86,8 +88,10 @@ def print_menu():
     print("2. Benchmark rewarder (needs GUI)")
     print("3. Launch training")
     print("4. Change frame size")
+    print("5. Launch genetic search")
+    print()
     print("0. Exit")
-    return input("Please choose an option (0-4): ")
+    return input("Please choose an option (0-5): ")
 
 def main():
     # Parse command line arguments
@@ -147,6 +151,9 @@ def main():
                     print("Frame size must be positive")
             except ValueError:
                 print("Please enter a valid number")
+        elif choice == "5":
+            max_steps = int(input("Enter max steps (default: 100): ") or "100")
+            run_genetic_search(generator, rewarder, simulator, out_paths, max_steps=max_steps)
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
