@@ -37,11 +37,5 @@ Everything is saved in `out/<profile>/<config>/`. That way you can recover param
 
 Please, fill free to open an issue to report a bug or make a suggestion !  
 
-# WIP
-- Profile & out downloading and sharing
-- Currently, the outputs of a simulation are used to: 
-    1. Make the video
-    2. As inputs for the rewardor, which will need often some preprocessing before.  
-
-    This is not very optimized, the pipeline could, at the same time of the generation of the video, call a rewarder function "preprocess", which would generate and save the preprocessed_outputs for the rewarder.
-- Propose to reload everything from the main menu
+# WIP in this branch:
+Make a artificial pipeline that enables to automate the search for interesting parameters using genetic algorithms with rewarder score as fitness.
