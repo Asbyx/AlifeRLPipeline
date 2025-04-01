@@ -329,7 +329,6 @@ class TorchRewarder(nn.Module, Rewarder):
                 For example, 0.2 means each fold uses 20% of data for validation, resulting in 5 folds.
             val_split (float, default 0.2): Ratio of data to use for validation when fold_ratio is None.
             early_stopping_patience (int, default 3): Number of epochs to wait for improvement before stopping.
-            cross_fold_patience (int, default 2): Number of folds to wait for improvement before stopping cross-validation.
             Other parameters remain the same as before.
         """
         if not hasattr(self, 'optimizer'):
@@ -342,7 +341,6 @@ class TorchRewarder(nn.Module, Rewarder):
         epochs = self.config.get('epochs', 100)
         fold_ratio = self.config.get('fold_ratio', None)
         early_stopping_patience = self.config.get('early_stopping_patience', 3)
-        cross_fold_patience = self.config.get('cross_fold_patience', 2)
         
         # Create folds
         dataset_size = len(dataset)
@@ -352,8 +350,6 @@ class TorchRewarder(nn.Module, Rewarder):
         # Track best model across all folds
         best_overall_val_loss = float('inf')
         best_overall_model_state = None
-        cross_fold_counter = 0
-        last_fold_improvement = -1
 
         print(f"Training on {dataset_size} samples with {num_folds} validation folds.")
         
@@ -400,14 +396,6 @@ class TorchRewarder(nn.Module, Rewarder):
             if best_val_loss < best_overall_val_loss:
                 best_overall_val_loss = best_val_loss
                 best_overall_model_state = best_model_state
-                last_fold_improvement = fold
-                cross_fold_counter = 0
-            else:
-                cross_fold_counter += 1
-                if cross_fold_counter >= cross_fold_patience and num_folds > 1:
-                    print(f"\nStopping cross-validation: No improvement for {cross_fold_counter} folds")
-                    print(f"Best validation loss {best_overall_val_loss:.4f} was achieved in fold {last_fold_improvement + 1}")
-                    break
         
         # Load best model across all folds
         if best_overall_model_state is not None:
