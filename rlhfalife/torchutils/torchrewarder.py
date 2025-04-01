@@ -9,6 +9,8 @@ import numpy as np
 from ..data_managers import TrainingDataset
 import hashlib
 from typing import List, Any
+import wandb
+
 class TorchRewarder(nn.Module, Rewarder):
     """
     A rewarder that uses a torch model. 
@@ -17,7 +19,7 @@ class TorchRewarder(nn.Module, Rewarder):
 
     Note: using this class assume that the outputs are torch tensors (dtype=torch.float32) saved as pt files, with torch.save.
     """
-    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", wandb_run = None):
+    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", wandb_params: dict = None):
         """
         Initialize the TorchRewarder.
     
@@ -30,14 +32,14 @@ class TorchRewarder(nn.Module, Rewarder):
                 early_stopping_patience (default 10): Early stopping patience
             model_path: Path to save or load the model
             device: Device to run the model on. Defaults to "cuda" if available, otherwise "cpu".
-            wandb_run: Wandb run to log to. Defaults to None.
+            wandb_params: Dictionary containing wandb parameters. Defaults to None.
         """
         nn.Module.__init__(self)
         self.config = config or {}
         self.device = device
         self.optimizer = None
         self.model_path = model_path
-        self.wandb_run = wandb_run
+        self.wandb_params = wandb_params
 
     #-------- Methods to implement --------#
     def forward(self, x):
@@ -336,6 +338,9 @@ class TorchRewarder(nn.Module, Rewarder):
         
         self._setup_optimizer()
 
+        if self.wandb_params:
+            self.wandb_run = wandb.init(**self.wandb_params)
+
         # Training parameters
         batch_size = self.config.get('batch_size', 16)
         epochs = self.config.get('epochs', 100)
@@ -401,6 +406,8 @@ class TorchRewarder(nn.Module, Rewarder):
         if best_overall_model_state is not None:
             self.load_state_dict(best_overall_model_state)
             print(f"Loaded best model with validation loss: {best_overall_val_loss:.4f}")
+        if self.wandb_run:
+            self.wandb_run.finish()
     
     def save(self):
         """
