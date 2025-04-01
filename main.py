@@ -127,6 +127,9 @@ def main():
         generator, rewarder, simulator = loader.load(out_paths, config_dict)
         dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
         pairs_manager = PairsManager(pairs_path)
+        print(f"Number of ranked pairs: {pairs_manager.get_nb_ranked_pairs()}")
+        
+        # clear
         print()
 
         choice = print_menu()
