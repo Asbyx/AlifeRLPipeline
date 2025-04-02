@@ -253,44 +253,46 @@ class PairsManager:
         Reorders the unranked pairs such that no hash appears n+1 times until all other hashes
         have appeared n times. This ensures users encounter a diverse range of simulations.
         """
-        # Get unranked pairs
-        unranked_pairs = self._get_unranked_pairs()
-        if unranked_pairs.empty:
-            return
-            
-        # Count current appearances of each hash
-        all_hashes = pd.concat([unranked_pairs['hash1'], unranked_pairs['hash2']]).values
-        hash_counts = pd.Series(all_hashes).value_counts().to_dict()
+        unranked_pairs = self.pairs_df[self.pairs_df['winner'].isna()].copy()
+
+        # Create a copy to avoid modifying the original
+        pairs = unranked_pairs.copy().reset_index(drop=True)
         
-        # Create a prioritized list based on appearance counts
-        ordered_pairs = []
-        remaining_pairs = unranked_pairs.copy()
+        # Initialize the count dictionary for all unique hashes
+        all_hashes = pd.concat([pairs['hash1'], pairs['hash2']]).unique()
+        hash_counts = {hash_val: 0 for hash_val in all_hashes}
+        
+        # Initialize the result dataframe
+        ordered_pairs = pd.DataFrame(columns=pairs.columns)
+        
+        # Continue until all pairs are used
+        remaining_pairs = pairs.copy()
         
         while not remaining_pairs.empty:
-            # Calculate current priority scores for each pair (lower is better)
-            scores = []
-            for _, row in remaining_pairs.iterrows():
-                # Score is the sum of appearances for both hashes
-                score = hash_counts.get(row['hash1'], 0) + hash_counts.get(row['hash2'], 0)
-                scores.append(score)
-                
-            # Get the pair with the lowest score
-            best_idx = scores.index(min(scores))
-            best_pair = remaining_pairs.iloc[best_idx]
+            # Calculate the current score for each pair based on hash counts
+            def pair_score(row):
+                return hash_counts[row['hash1']] + hash_counts[row['hash2']]
             
-            # Add to ordered pairs
-            ordered_pairs.append(best_pair)
+            # Find the pair with the lowest score (least seen hashes)
+            remaining_pairs['score'] = remaining_pairs.apply(pair_score, axis=1)
+            min_score = remaining_pairs['score'].min()
+            min_score_pairs = remaining_pairs[remaining_pairs['score'] == min_score]
             
-            # Update counts
-            hash_counts[best_pair['hash1']] = hash_counts.get(best_pair['hash1'], 0) + 1
-            hash_counts[best_pair['hash2']] = hash_counts.get(best_pair['hash2'], 0) + 1
+            # If multiple pairs have the same score, choose one randomly
+            chosen_idx = min_score_pairs.sample(n=1).index[0]
+            chosen_pair = remaining_pairs.loc[chosen_idx]
             
-            # Remove from remaining pairs
-            remaining_pairs = remaining_pairs.drop(remaining_pairs.index[best_idx]).reset_index(drop=True)
+            # Add the chosen pair to the result
+            ordered_pairs = pd.concat([ordered_pairs, pd.DataFrame([chosen_pair[pairs.columns]])], ignore_index=True)
+            
+            # Update the hash counts
+            hash_counts[chosen_pair['hash1']] += 1
+            hash_counts[chosen_pair['hash2']] += 1
+            
+            # Remove the chosen pair from remaining pairs
+            remaining_pairs = remaining_pairs.drop(chosen_idx)
         
-        # Update the unranked pairs in the dataframe
-        ranked_pairs = self._get_ranked_pairs()
-        self.pairs_df = pd.concat([pd.DataFrame(ordered_pairs), ranked_pairs], ignore_index=True).reset_index(drop=True)
+        self.pairs_df = pd.concat([pd.DataFrame(ordered_pairs), self.pairs_df[self.pairs_df['winner'].notna()]], ignore_index=True).reset_index(drop=True)
         self.save()
 
     def save(self):
