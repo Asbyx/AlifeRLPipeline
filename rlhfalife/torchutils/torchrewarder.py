@@ -177,8 +177,8 @@ class TorchRewarder(nn.Module, Rewarder):
                 
                 batch_count += 1
         
-        avg_loss = total_loss / batch_count if batch_count > 0 else 0
-        accuracy = correct / total if total > 0 else 0
+        avg_loss = total_loss / batch_count / self.batch_size if batch_count > 0 else 0
+        accuracy = correct / total / self.batch_size if total > 0 else 0
         
         return avg_loss, accuracy
     
@@ -279,8 +279,8 @@ class TorchRewarder(nn.Module, Rewarder):
             total += batch_total
             batch_count += 1
         
-        avg_loss = total_loss / batch_count if batch_count > 0 else 0
-        accuracy = correct / total if total > 0 else 0
+        avg_loss = total_loss / batch_count / self.batch_size if batch_count > 0 else 0
+        accuracy = correct / total / self.batch_size if total > 0 else 0
         
         return avg_loss, accuracy
 
@@ -318,8 +318,8 @@ class TorchRewarder(nn.Module, Rewarder):
         if epoch % 10 == 0 or epoch == epochs - 1:
             fold_info = f"Fold {fold + 1}/{num_folds} - " if num_folds > 1 else ""
             print(f"{fold_info}Epoch {epoch+1}/{epochs}:")
-            print(f"  Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
-            print(f"  Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
+            print(f"  Mean Train Loss: {train_loss:.4f}, Mean Train Accuracy: {train_accuracy:.4f}")
+            print(f"  Mean Val Loss: {val_loss:.4f}, Mean Val Accuracy: {val_accuracy:.4f}")
 
     def train(self, dataset: TrainingDataset):
         """
