@@ -30,6 +30,7 @@ class TorchRewarder(nn.Module, Rewarder):
                 batch_size (default 16): Batch size
                 val_split (default 0.2): Validation split
                 early_stopping_patience (default 10): Early stopping patience
+                loss (default "cross_entropy"): Loss function to use. Can be "margin" or "cross_entropy".
             model_path: Path to save or load the model
             device: Device to run the model on. Defaults to "cuda" if available, otherwise "cpu".
             wandb_params: Dictionary containing wandb parameters. Defaults to None.
@@ -40,6 +41,10 @@ class TorchRewarder(nn.Module, Rewarder):
         self.optimizer = None
         self.model_path = model_path
         self.wandb_params = wandb_params
+        self.loss = {
+            "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y, margin=0.1),
+            "cross_entropy": lambda scores1, scores2, y: F.cross_entropy(scores1, scores2, y)
+        }[self.config.get('loss', 'cross_entropy')]
 
     #-------- Methods to implement --------#
     def forward(self, x):
@@ -152,7 +157,7 @@ class TorchRewarder(nn.Module, Rewarder):
         super().train(False)
         with torch.no_grad():
             for batch_data1, batch_data2, batch_winners in dataset_batches:
-                # Prepare target for margin ranking loss
+                # Prepare target for ranking loss
                 y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
                 
                 # Get predictions
@@ -160,7 +165,7 @@ class TorchRewarder(nn.Module, Rewarder):
                 scores2 = self(batch_data2)
                 
                 # Compute loss
-                loss = F.margin_ranking_loss(scores1, scores2, y, margin=0.1)
+                loss = self.loss(scores1, scores2, y)
                 total_loss += loss.item()
                 
                 # Compute accuracy
@@ -225,7 +230,7 @@ class TorchRewarder(nn.Module, Rewarder):
         Returns:
             tuple: (loss, correct_predictions, total_samples)
         """
-        # Prepare target for margin ranking loss
+        # Prepare target for ranking loss
         y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
         
         # Get predictions
@@ -233,7 +238,7 @@ class TorchRewarder(nn.Module, Rewarder):
         scores2 = self(batch_data2)
         
         # Compute loss
-        loss = F.margin_ranking_loss(scores1, scores2, y, margin=0.1)
+        loss = self.loss(scores1, scores2, y)
         
         # Optimize
         self.optimizer.zero_grad()
