@@ -41,9 +41,14 @@ class TorchRewarder(nn.Module, Rewarder):
         self.optimizer = None
         self.model_path = model_path
         self.wandb_params = wandb_params
+        
+        def cross_entropy_loss(scores1, scores2, y):
+            p = torch.exp(scores2) / (torch.exp(scores1) + torch.exp(scores2)) # as y = 0 means "left win", p = P("right wins")
+            return -torch.sum(y * torch.log(p) + (1 - y) * torch.log(1 - p))
+        
         self.loss = {
-            "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y, margin=0.1),
-            "cross_entropy": lambda scores1, scores2, y: F.cross_entropy(scores1, scores2, y)
+            "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y*2-1, margin=0.1), # convert to {-1, 1}
+            "cross_entropy": cross_entropy_loss
         }[self.config.get('loss', 'cross_entropy')]
 
     #-------- Methods to implement --------#
@@ -157,21 +162,18 @@ class TorchRewarder(nn.Module, Rewarder):
         super().train(False)
         with torch.no_grad():
             for batch_data1, batch_data2, batch_winners in dataset_batches:
-                # Prepare target for ranking loss
-                y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
-                
                 # Get predictions
                 scores1 = self(batch_data1)
                 scores2 = self(batch_data2)
                 
                 # Compute loss
-                loss = self.loss(scores1, scores2, y)
+                loss = self.loss(scores1, scores2, batch_winners)
                 total_loss += loss.item()
                 
                 # Compute accuracy
-                predictions = (scores1 > scores2).int() * 2 - 1  # Convert to -1 or 1
-                correct += (predictions == y).sum().item()
-                total += len(y)
+                predictions = (scores1 > scores2).int()
+                correct += (predictions == batch_winners).sum().item()
+                total += len(batch_winners)
                 
                 batch_count += 1
         
