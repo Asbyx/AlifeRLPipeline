@@ -142,7 +142,7 @@ class TorchRewarder(nn.Module, Rewarder):
             if not isinstance(data1[0], torch.Tensor):
                 raise ValueError("The outputs are not saved as torch tensors. Please save the outputs as torch tensors using torch.save. Note: numpy arrays saved with torch.save will still be saved as numpy arrays.")
 
-            yield data1, data2, winners
+            yield data1, data2, torch.tensor(winners, dtype=torch.float32, device=self.device)
     
     def _evaluate_dataset(self, dataset_batches):
         """
@@ -171,7 +171,7 @@ class TorchRewarder(nn.Module, Rewarder):
                 total_loss += loss.item()
                 
                 # Compute accuracy
-                predictions = (scores1 > scores2).int()
+                predictions = (scores1 < scores2).int()
                 correct += (predictions == batch_winners).sum().item()
                 total += len(batch_winners)
                 
@@ -231,16 +231,13 @@ class TorchRewarder(nn.Module, Rewarder):
             
         Returns:
             tuple: (loss, correct_predictions, total_samples)
-        """
-        # Prepare target for ranking loss
-        y = torch.tensor([-1 if w == 1 else 1 for w in batch_winners], device=self.device)
-        
+        """        
         # Get predictions
         scores1 = self(batch_data1)
         scores2 = self(batch_data2)
         
         # Compute loss
-        loss = self.loss(scores1, scores2, y)
+        loss = self.loss(scores1, scores2, batch_winners)
         
         # Optimize
         self.optimizer.zero_grad()
@@ -248,10 +245,10 @@ class TorchRewarder(nn.Module, Rewarder):
         self.optimizer.step()
         
         # Calculate metrics
-        predictions = (scores1 > scores2).int() * 2 - 1
-        correct = (predictions == y).sum().item()
+        predictions = (scores1 < scores2).int()
+        correct = (predictions == batch_winners).sum().item()
         
-        return loss.item(), correct, len(y)
+        return loss.item(), correct, len(batch_winners)
 
     def _train_single_epoch(self, train_indices: list, dataset: TrainingDataset, batch_size: int):
         """
