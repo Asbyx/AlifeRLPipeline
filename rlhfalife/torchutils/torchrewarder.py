@@ -44,6 +44,10 @@ class TorchRewarder(nn.Module, Rewarder):
         
         def cross_entropy_loss(scores1, scores2, y):
             p = torch.exp(scores2) / (torch.exp(scores1) + torch.exp(scores2)) # as y = 0 means "left win", p = P("right wins")
+            if p == 0:
+                p = 1e-10
+            elif p == 1:
+                p = 1 - 1e-10
             return -torch.sum(y * torch.log(p) + (1 - y) * torch.log(1 - p))
         
         self.loss = {
@@ -158,6 +162,7 @@ class TorchRewarder(nn.Module, Rewarder):
         correct = 0
         total = 0
         batch_count = 0
+        batch_size = self.config.get('batch_size', 16)
         
         super().train(False)
         with torch.no_grad():
@@ -177,8 +182,8 @@ class TorchRewarder(nn.Module, Rewarder):
                 
                 batch_count += 1
         
-        avg_loss = total_loss / batch_count / self.batch_size if batch_count > 0 else 0
-        accuracy = correct / total / self.batch_size if total > 0 else 0
+        avg_loss = total_loss / batch_count / batch_size if batch_count > 0 else 0
+        accuracy = correct / total if total > 0 else 0
         
         return avg_loss, accuracy
     
@@ -279,8 +284,8 @@ class TorchRewarder(nn.Module, Rewarder):
             total += batch_total
             batch_count += 1
         
-        avg_loss = total_loss / batch_count / self.batch_size if batch_count > 0 else 0
-        accuracy = correct / total / self.batch_size if total > 0 else 0
+        avg_loss = total_loss / batch_count / batch_size if batch_count > 0 else 0
+        accuracy = correct / total if total > 0 else 0
         
         return avg_loss, accuracy
 
