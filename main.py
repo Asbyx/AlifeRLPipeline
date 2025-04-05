@@ -86,8 +86,9 @@ def print_menu():
     print("2. Benchmark rewarder (needs GUI)")
     print("3. Launch training")
     print("4. Change frame size")
+    print("5. Reload models and data managers")
     print("0. Exit")
-    return input("Please choose an option (0-4): ")
+    return input("Please choose an option (0-5): ")
 
 def main():
     # Parse command line arguments
@@ -150,6 +151,8 @@ def main():
                     print("Frame size must be positive")
             except ValueError:
                 print("Please enter a valid number")
+        elif choice == "5":
+            print("Reloading models and data managers.")
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
