@@ -104,7 +104,9 @@ def main():
 
     print(f"Using profile: {profile}, config: {config}, frame size: {args.frame_size}.")
 
+
     # Load the profile module
+    print(f"Loading profile...")
     try:
         profile_module = __import__(f"profiles.{profile}", fromlist=[profile])
     except Exception as e:
