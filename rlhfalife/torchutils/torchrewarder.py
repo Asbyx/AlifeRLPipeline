@@ -44,11 +44,7 @@ class TorchRewarder(nn.Module, Rewarder):
         
         def cross_entropy_loss(scores1, scores2, y):
             p = torch.exp(scores2) / (torch.exp(scores1) + torch.exp(scores2)) # as y = 0 means "left win", p = P("right wins")
-            if p == 0:
-                p = 1e-10
-            elif p == 1:
-                p = 1 - 1e-10
-            return -torch.sum(y * torch.log(p) + (1 - y) * torch.log(1 - p))
+            return -torch.sum(y * torch.log(p + 1e-10) + (1 - y) * torch.log(1 - p + 1e-10))
         
         self.loss = {
             "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y*2-1, margin=0.1), # convert to {-1, 1}
