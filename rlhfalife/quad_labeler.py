@@ -478,7 +478,6 @@ class QuadLabelerApp:
         
         # Generate all pairs and record the winners based on ranking
         # For each pair (i,j), the winner is the one with lower index
-        print(self.current_hashes)
         for i in range(4):
             hash_i = self.current_hashes[i]
             for j in range(i+1, 4):
