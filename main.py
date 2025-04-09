@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 from rlhfalife.labeler import launch_video_labeler
+from rlhfalife.quad_labeler import launch_quad_labeler
 from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
@@ -82,13 +83,15 @@ def setup_paths(profile, config):
 
 def print_menu():
     print("\nAlifeHub - Main Menu")
-    print("1. Label videos (needs GUI)")
-    print("2. Benchmark rewarder (needs GUI)")
-    print("3. Launch training")
-    print("4. Change frame size")
-    print("5. Reload models and data managers")
+    print("1. Label Pairs (needs GUI)")
+    print("2. Quad Labeler (needs GUI)")
+    print("3. Benchmark rewarder (needs GUI)")
+    print("4. Launch training")
+    print()
+    print("5. Change frame size")
+    print("6. Reload models and data managers")
     print("0. Exit")
-    return input("Please choose an option (0-5): ")
+    return input("Please choose an option (0-6): ")
 
 def main():
     # Parse command line arguments
@@ -140,10 +143,12 @@ def main():
         if choice == "1":
             launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
         elif choice == "2":
-            launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
+            launch_quad_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
         elif choice == "3":
-            launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
+            launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
         elif choice == "4":
+            launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
+        elif choice == "5":
             try:
                 new_size = int(input("Enter new frame size (default: 300): ") or "300")
                 if new_size > 0:
@@ -153,7 +158,7 @@ def main():
                     print("Frame size must be positive")
             except ValueError:
                 print("Please enter a valid number")
-        elif choice == "5":
+        elif choice == "6":
             print("Reloading models and data managers.")
         elif choice == "0":
             print("Exiting AlifeHub...")
