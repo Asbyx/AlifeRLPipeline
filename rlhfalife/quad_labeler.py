@@ -60,7 +60,7 @@ class DraggableVideo(tk.Frame):
         self.video_label.pack(padx=5, pady=5)
         
         # Create hash label
-        self.hash_label = tk.Label(self, text=f"Hash: {hash_value[:8]}...", font=("Arial", 8), wraplength=frame_size[0]-10)
+        self.hash_label = tk.Label(self, text=f"Hash: {hash_value}", font=("Arial", 8), wraplength=frame_size[0]-10)
         self.hash_label.pack(pady=(0, 5))
         
         # Create ranking indicator
