@@ -372,10 +372,10 @@ class PairsManager:
         pair_idx = self.pairs_df[
             ((self.pairs_df['hash1'] == hash1) & (self.pairs_df['hash2'] == hash2)) |
             ((self.pairs_df['hash1'] == hash2) & (self.pairs_df['hash2'] == hash1))
-        ].index
+        ].index[0]
         
         if len(pair_idx) > 0:
-            self.pairs_df.at[pair_idx[0], 'winner'] = winner
+            self.pairs_df.at[pair_idx, 'winner'] = winner if self.pairs_df.at[pair_idx, 'hash1'] == hash1 else 1 - winner
         else:
             self._add_pair(hash1, hash2, winner)
     
