@@ -122,19 +122,13 @@ def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, verb
     Returns:
         bool: True if successful, False otherwise
     """
-    try:
-        # Progress callback to display generation status
-        def progress_callback(message):
-            print(message)
-            return True
-            
+    try:            
         print(f"Generating {num_sims} simulations...")
         simulator.generate_pairs(
             num_sims, 
             dataset_manager, 
             pairs_manager, 
-            verbose=verbose,
-            progress_callback=progress_callback
+            verbose=verbose
         )
         print(f"Successfully generated {num_sims} simulations.")
         return True
