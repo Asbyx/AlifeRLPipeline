@@ -96,9 +96,9 @@ def print_menu():
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='AlifeHub CLI')
-    parser.add_argument('--profile', type=str, help='Profile name to use')
-    parser.add_argument('--config', type=str, help='Config name to use')
-    parser.add_argument('--frame_size', type=int, default=300, help='Frame size to use')
+    parser.add_argument('--profile', '-p', type=str, help='Profile name to use')
+    parser.add_argument('--config', '-c', type=str, help='Config name to use')
+    parser.add_argument('--frame_size', '-f', type=int, default=300, help='Frame size to use')
     args = parser.parse_args()
 
     # Select profile and config
