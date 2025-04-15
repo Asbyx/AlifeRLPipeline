@@ -1,12 +1,15 @@
 import os
 import json
 import argparse
+import importlib
+import sys
 from rlhfalife.labeler import launch_video_labeler
 from rlhfalife.quad_labeler import launch_quad_labeler
 from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
 from rlhfalife.data_managers import DatasetManager, PairsManager
+import gc
 
 def get_available_profiles():
     """Get list of available profiles."""
@@ -81,6 +84,30 @@ def setup_paths(profile, config):
 
     return out_path, out_paths
 
+def load_profile_module(profile):
+    """Load the profile module and return it, forcing a reload if it was previously loaded."""
+    module_name = f"profiles.{profile}"
+    try:
+        if module_name in sys.modules:
+            submodules = []
+            # First identify all submodules that need to be reloaded
+            for name in list(sys.modules.keys()):
+                if name.startswith(f"{module_name}."):
+                    submodules.append(name)
+            
+            # Reload all submodules
+            for submodule in submodules:
+                if submodule in sys.modules:
+                    importlib.reload(sys.modules[submodule])
+                    
+            profile_module = importlib.reload(sys.modules[module_name])
+        else:
+            profile_module = importlib.import_module(module_name)
+        return profile_module
+    except Exception as e:
+        print(f"Error loading profile '{profile}': {str(e)}")
+        return None
+
 def print_menu():
     print("\nAlifeHub - Main Menu")
     print("1. Label Pairs (needs GUI)")
@@ -88,10 +115,11 @@ def print_menu():
     print("3. Benchmark rewarder (needs GUI)")
     print("4. Launch training")
     print()
-    print("5. Change frame size")
+    print("5. Reload new code")
     print("6. Reload models and data managers")
+    print("7. Change frame size")
     print("0. Exit")
-    return input("Please choose an option (0-6): ")
+    return input("Please choose an option (0-7): ")
 
 def main():
     # Parse command line arguments
@@ -107,13 +135,10 @@ def main():
 
     print(f"Using profile: {profile}, config: {config}, frame size: {args.frame_size}.")
 
-
     # Load the profile module
     print(f"Loading profile...")
-    try:
-        profile_module = __import__(f"profiles.{profile}", fromlist=[profile])
-    except Exception as e:
-        print(f"Error loading profile '{profile}': {str(e)}")
+    profile_module = load_profile_module(profile)
+    if profile_module is None:
         exit(1)
 
     # Load the config
@@ -139,6 +164,7 @@ def main():
         print(f"Number of ranked pairs: {pairs_manager.get_nb_ranked_pairs()}")
         
         choice = print_menu()
+        print()
         
         if choice == "1":
             launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
@@ -148,7 +174,7 @@ def main():
             launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
         elif choice == "4":
             launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
-        elif choice == "5":
+        elif choice == "7":
             try:
                 new_size = int(input("Enter new frame size (default: 300): ") or "300")
                 if new_size > 0:
@@ -159,7 +185,14 @@ def main():
             except ValueError:
                 print("Please enter a valid number")
         elif choice == "6":
-            print("Reloading models and data managers.")
+            print("Reloading models and data managers...")
+        elif choice == "5":
+            print("Reloading new code...")            
+            profile_module = load_profile_module(profile)
+            if profile_module is None:
+                exit(1)
+            loader = profile_module.Loader()
+
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
