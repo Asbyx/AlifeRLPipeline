@@ -301,7 +301,7 @@ class TorchRewarder(nn.Module, Rewarder):
             val_loss: Validation loss
             val_accuracy: Validation accuracy
         """
-        if self.wandb_run:
+        if self.wandb_params:
             log_data = {
                 "train_loss": train_loss,
                 "train_accuracy": train_accuracy,
@@ -411,7 +411,7 @@ class TorchRewarder(nn.Module, Rewarder):
         if best_overall_model_state is not None:
             self.load_state_dict(best_overall_model_state)
             print(f"Loaded best model with validation loss: {best_overall_val_loss:.4f}")
-        if self.wandb_run:
+        if self.wandb_params:
             self.wandb_run.finish()
     
     def save(self):
