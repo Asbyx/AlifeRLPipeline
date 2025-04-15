@@ -235,7 +235,6 @@ class PairsManager:
         """Load the pairs from CSV or create a new one if it doesn't exist."""
         if os.path.exists(self.pairs_path):
             self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
-            self._reindex_pairs()
         else:
             # Create a new pairs file with the required columns
             self.pairs_df = pd.DataFrame(columns=['hash1', 'hash2', 'winner'])
