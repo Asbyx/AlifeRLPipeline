@@ -9,7 +9,7 @@ from rlhfalife.benchmarker import launch_benchmarker
 from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
 from rlhfalife.data_managers import DatasetManager, PairsManager
-import gc
+from exporter import export_profile_interactive
 
 def get_available_profiles():
     """Get list of available profiles."""
@@ -154,8 +154,9 @@ def print_menu():
     print("\n6. Reload new code")
     print("7. Change frame size")
     print("8. Reload models and data managers")
+    print("9. Export profile")
     print("0. Exit")
-    return input("Please choose an option (0-8): ")
+    return input("Please choose an option (0-9): ")
 
 def main():
     # Parse command line arguments
@@ -238,6 +239,9 @@ def main():
                 print("Please enter a valid number")
         elif choice == "8":
             print("Reloading models and data managers...")
+        elif choice == "9":
+            print("\nExport Profile")
+            export_profile_interactive()
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
