@@ -151,10 +151,9 @@ def print_menu():
     print("3. Benchmark rewarder (needs GUI)")
     print("4. Launch training")
     print("5. Generate pairs (no GUI)")
-
     print("\n6. Reload new code")
-    print("7. Reload models and data managers")
-    print("8. Change frame size")
+    print("7. Change frame size")
+    print("8. Reload models and data managers")
     print("0. Exit")
     return input("Please choose an option (0-8): ")
 
@@ -211,6 +210,22 @@ def main():
             launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
         elif choice == "4":
             launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
+        elif choice == "5":
+            try:
+                num_sims = int(input("Enter number of simulations to generate: ") or "5")
+                if num_sims <= 0:
+                    print("Number of simulations must be positive")
+                    continue
+                
+                generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
+            except ValueError:
+                print("Please enter a valid number")
+        elif choice == "6":
+            print("Reloading new code...")            
+            profile_module = load_profile_module(profile)
+            if profile_module is None:
+                exit(1)
+            loader = profile_module.Loader()
         elif choice == "7":
             try:
                 new_size = int(input("Enter new frame size (default: 300): ") or "300")
@@ -221,24 +236,8 @@ def main():
                     print("Frame size must be positive")
             except ValueError:
                 print("Please enter a valid number")
-        elif choice == "6":
-            print("Reloading models and data managers...")
-        elif choice == "5":
-            print("Reloading new code...")            
-            profile_module = load_profile_module(profile)
-            if profile_module is None:
-                exit(1)
-            loader = profile_module.Loader()
         elif choice == "8":
-            try:
-                num_sims = int(input("Enter number of simulations to generate: ") or "5")
-                if num_sims <= 0:
-                    print("Number of simulations must be positive")
-                    continue
-                
-                generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
-            except ValueError:
-                print("Please enter a valid number")
+            print("Reloading models and data managers...")
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
