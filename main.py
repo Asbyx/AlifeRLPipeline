@@ -108,18 +108,55 @@ def load_profile_module(profile):
         print(f"Error loading profile '{profile}': {str(e)}")
         return None
 
+def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, verbose=True):
+    """
+    Generate pairs without GUI.
+    
+    Args:
+        simulator: Simulator object to use for generating pairs
+        dataset_manager: DatasetManager instance for storing simulation data
+        pairs_manager: PairsManager instance for storing pairs
+        num_sims: Number of simulations to generate
+        verbose: Whether to print verbose output
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Progress callback to display generation status
+        def progress_callback(message):
+            print(message)
+            return True
+            
+        print(f"Generating {num_sims} simulations...")
+        simulator.generate_pairs(
+            num_sims, 
+            dataset_manager, 
+            pairs_manager, 
+            verbose=verbose,
+            progress_callback=progress_callback
+        )
+        print(f"Successfully generated {num_sims} simulations.")
+        return True
+    except Exception as e:
+        print(f"Error generating pairs: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 def print_menu():
     print("\nAlifeHub - Main Menu")
     print("1. Label Pairs (needs GUI)")
     print("2. Quad Labeler (needs GUI)")
     print("3. Benchmark rewarder (needs GUI)")
     print("4. Launch training")
-    print()
-    print("5. Reload new code")
-    print("6. Reload models and data managers")
-    print("7. Change frame size")
+    print("5. Generate pairs (no GUI)")
+
+    print("\n6. Reload new code")
+    print("7. Reload models and data managers")
+    print("8. Change frame size")
     print("0. Exit")
-    return input("Please choose an option (0-7): ")
+    return input("Please choose an option (0-8): ")
 
 def main():
     # Parse command line arguments
@@ -192,7 +229,16 @@ def main():
             if profile_module is None:
                 exit(1)
             loader = profile_module.Loader()
-
+        elif choice == "8":
+            try:
+                num_sims = int(input("Enter number of simulations to generate: ") or "5")
+                if num_sims <= 0:
+                    print("Number of simulations must be positive")
+                    continue
+                
+                generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
+            except ValueError:
+                print("Please enter a valid number")
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
