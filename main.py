@@ -76,6 +76,7 @@ def setup_paths(profile, config):
         'rewarder': os.path.join(out_path, "rewarder"),
         'generator': os.path.join(out_path, "generator"),
         'saved_simulations': os.path.join(out_path, "saved_simulations"),
+        'benchmark': os.path.join("out", profile, "benchmark"),
     }
 
     # Create all directories
