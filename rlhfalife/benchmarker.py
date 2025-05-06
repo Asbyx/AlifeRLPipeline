@@ -7,130 +7,9 @@ from PIL import Image, ImageTk
 import pandas as pd
 import shutil
 import sys
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import kendalltau
 from rlhfalife.utils import Generator, Rewarder, Simulator
 import traceback
-
-# New function for command-line evaluation
-def run_evaluation_cli(benchmark_path: str, simulator: Simulator, rewarder: Rewarder, out_paths: dict):
-    """Loads a benchmark, evaluates the rewarder, and prints correlation."""
-    print(f"Evaluating benchmark at: {benchmark_path}")
-
-    # Check if path exists
-    if not os.path.exists(benchmark_path):
-        print(f"Error: Directory {benchmark_path} does not exist.")
-        return
-
-    # Check for benchmark.csv
-    benchmark_csv = os.path.join(benchmark_path, "benchmark.csv")
-    if not os.path.exists(benchmark_csv):
-        print(f"Error: No benchmark.csv found in {benchmark_path}.")
-        return
-
-    # Load benchmark data
-    try:
-        benchmark_data = pd.read_csv(benchmark_csv)
-        print(f"Loaded benchmark with {len(benchmark_data)} videos.")
-
-        # Load videos and hash values
-        videos = []
-        hashs = []
-        human_scores = [] # Not strictly needed for correlation, but might be useful
-        params = []
-
-        for _, row in benchmark_data.iterrows():
-            video_path = os.path.join(benchmark_path, row['video_file'])
-            if os.path.exists(video_path):
-                videos.append(video_path)
-                hash_val = row['hash']
-                hashs.append(hash_val)
-                rank = row['rank']
-                human_scores.append(len(benchmark_data) - rank + 1) # Convert rank to score
-
-                # Load parameters
-                param_path = os.path.join(benchmark_path, str(hash_val))
-                if os.path.exists(param_path):
-                    param = simulator.load_param(param_path)
-                    params.append(param)
-                else:
-                    print(f"Warning: Parameter file not found: {param_path}")
-                    params.append(None) # Handle missing params gracefully if possible
-            else:
-                print(f"Warning: Video file not found: {video_path}")
-
-        if len(videos) == 0:
-            print("Error: No valid video entries found in the benchmark.")
-            return
-            
-        if any(p is None for p in params):
-             print("Error: Could not load all parameter files. Cannot proceed with evaluation.")
-             return
-
-        # Evaluate the rewarder
-        print("Evaluating rewarder...")
-
-        # Run simulations if needed (or load pre-computed outputs)
-        outputs = []
-        for i, param in enumerate(params):
-            # Try to load output first
-            output_path = os.path.join(benchmark_path, f"output_{hashs[i]}")
-            try:
-                # Assuming simulator has load_output method
-                output = simulator.load_output(output_path)
-                outputs.append(output)
-                # print(f"Loaded output for hash {hashs[i]}")
-            except FileNotFoundError:
-                 print(f"Output file not found ({output_path}), running simulation...")
-                 try:
-                    output = simulator.run([param])[0]
-                    outputs.append(output)
-                    # Optionally save the output now
-                    # simulator.save_output(output, output_path)
-                 except Exception as e:
-                    print(f"Error: Failed to run simulation for hash {hashs[i]}: {str(e)}")
-                    return
-            except Exception as e:
-                print(f"Error loading output {output_path}: {str(e)}. Running simulation...")
-                try:
-                    output = simulator.run([param])[0]
-                    outputs.append(output)
-                except Exception as sim_e:
-                    print(f"Error: Failed to run simulation for hash {hashs[i]} after load failure: {str(sim_e)}")
-                    return
-
-
-        # Score the outputs with the rewarder
-        print("Scoring outputs...")
-        try:
-            rewarder_scores = rewarder.rank(outputs)
-        except Exception as e:
-            print(f"Error: Failed to score outputs: {str(e)}")
-            return
-
-        # Calculate correlation
-        print("Calculating correlation...")
-        try:
-            # Extract the actual ranks from the benchmark data
-            benchmark_ranks = benchmark_data['rank'].iloc[:len(rewarder_scores)].tolist() # Ensure lengths match
-
-            # Spearman rank correlation
-            spearman_corr, spearman_p = spearmanr(benchmark_ranks, rewarder_scores)
-            # Pearson correlation
-            pearson_corr, pearson_p = pearsonr(benchmark_ranks, rewarder_scores)
-
-            print("--- Evaluation Results ---")
-            print(f"Spearman Correlation: {spearman_corr:.4f} (p-value: {spearman_p:.4f})")
-            print(f"Pearson Correlation:  {pearson_corr:.4f} (p-value: {pearson_p:.4f})")
-            print("--------------------------")
-
-        except Exception as e:
-            print(f"Error: Failed to calculate correlation: {str(e)}")
-            traceback.print_exc()
-
-    except Exception as e:
-        print(f"Error: Failed to load or process benchmark: {str(e)}")
-        traceback.print_exc()
-
 
 class LiveBenchmarkApp:
     """App for live benchmarking with auto-generated simulations and rewarder scoring."""
@@ -381,8 +260,7 @@ class CreateBenchmarkApp:
         
         # Title and instruction
         ttk.Label(main_frame, text="Create Benchmark", font=("Arial", 16, "bold")).pack(pady=(0, 5))
-        instructions = """Drag videos to rank them from best (top-left) to worst (bottom-right).
-Use the switches between videos to mark them as equal (=) or greater than (<)."""
+        instructions = """Drag videos to rank them from best (top-left) to worst (bottom-right).\nUse the switches between videos to mark them as equal (=) or greater than (<)."""
         ttk.Label(main_frame, text=instructions, justify=tk.CENTER).pack(pady=(0, 10))
         
         # Create a frame for the two rows of videos
@@ -1067,6 +945,112 @@ class DraggableVideo(tk.Frame):
         if self.cap and self.cap.isOpened():
             self.cap.release()
 
+def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_paths: dict) -> None:
+    """
+    Test the rewarder against a benchmark.
+    
+    Args:
+        simulator: The simulator to use for loading outputs
+        rewarder: The rewarder to test
+        out_paths: Dictionary containing paths to outputs
+    """
+    benchmark_file = os.path.join(out_paths["benchmark"], "benchmark.csv")
+    
+    # Check if benchmark exists
+    if not os.path.exists(benchmark_file):
+        print(f"Error: Benchmark file not found at {benchmark_file}")
+        print("Please create a benchmark first using option 2.")
+        return
+    
+    print(f"Loading benchmark from {benchmark_file}")
+    try:
+        # Load benchmark data
+        benchmark_df = pd.read_csv(benchmark_file, dtype={'hash': str})
+        
+        # Check if benchmark has required columns
+        if not all(col in benchmark_df.columns for col in ['rank', 'hash', 'output_file']):
+            print("Error: Benchmark file has invalid format. Missing required columns.")
+            return
+        
+        if len(benchmark_df) < 2:
+            print("Error: Benchmark contains fewer than 2 samples. Need at least 2 for evaluation.")
+            return
+        
+        # Load outputs
+        print("Loading simulation outputs...")
+        outputs = []
+        hashes = []
+        total_outputs = len(benchmark_df)
+        for i, (_, row) in enumerate(benchmark_df.iterrows()):
+            hash_val = row['hash']
+            hashes.append(hash_val)
+            output_path = os.path.join(out_paths["benchmark"], hash_val)
+            try:
+                # Show progress
+                progress = f"[{i+1}/{total_outputs}]"
+                print(f"{progress} Loading output for hash {hash_val}...", end="\r")
+                
+                output = simulator.load_output(output_path)
+                outputs.append(output)
+            except Exception as e:
+                print(f"\nError loading output for hash {hash_val}: {e}")
+                return
+        
+        print(f"Loaded all {total_outputs} outputs successfully.            ")
+        
+        # Get ranks from benchmark
+        benchmark_ranks = benchmark_df['rank'].tolist()
+        
+        # Get scores from rewarder
+        print("Ranking using the rewarder...")
+        rewarder_scores = rewarder.rank(outputs)
+        
+        # Create results dataframe for display
+        results_df = pd.DataFrame({
+            'Hash': hashes,
+            'Benchmark Rank': benchmark_ranks,
+            'Rewarder Score': rewarder_scores
+        })
+        
+        # Add ranking by rewarder scores (highest score = rank 1)
+        rewarder_ranking = [-score for score in rewarder_scores]  # Convert to "lower is better" for ranking
+        results_df['Rewarder Ranking'] = pd.Series(rewarder_ranking).rank(method='min').map(int)
+        
+        # Calculate ranking error (difference between benchmark rank and rewarder ranking)
+        results_df['Rank Error'] = abs(results_df['Benchmark Rank'] - results_df['Rewarder Ranking'])
+        avg_rank_error = results_df['Rank Error'].mean()
+        
+        # Calculate Kendall Tau correlation
+        kendall_tau, _ = kendalltau(results_df['Benchmark Rank'], results_df['Rewarder Ranking'])
+
+        # Calculate precision for top 3 and bottom 3
+        top_3_rewarder_hashes = results_df.sort_values(by="Rewarder Ranking")["Hash"].head(3)
+        bottom_3_rewarder_hashes = results_df.sort_values(by="Rewarder Ranking")["Hash"].tail(3)
+
+        top_3_precision = results_df["Hash"].head(3).isin(top_3_rewarder_hashes).sum() / 3
+        bottom_3_precision = results_df["Hash"].tail(3).isin(bottom_3_rewarder_hashes).sum() / 3
+
+        # Sort by benchmark rank for first display
+        benchmark_sorted_df = results_df.sort_values('Benchmark Rank')
+
+        # Sort the columns
+        benchmark_sorted_df = benchmark_sorted_df[['Hash', 'Benchmark Rank', 'Rewarder Ranking', 'Rewarder Score', 'Rank Error']]
+        
+        # Display results
+        print("\n===== REWARDER EVALUATION RESULTS =====")
+        print(f"{avg_rank_error:>6.2f}  Average Rank Error")
+        print(f"{kendall_tau:>+6.2f}  Kendall Tau Correlation [-1 to 1]")
+        print(f"{top_3_precision:>6.2f}  Top 3 Precision [0 to 1]")
+        print(f"{bottom_3_precision:>6.2f}  Bottom 3 Precision [0 to 1]")
+        
+        print("\nResults sorted by Benchmark Rank:")
+        print(benchmark_sorted_df.to_string(index=False))
+        print("="*100)
+        
+    except Exception as e:
+        print(f"Error testing rewarder on benchmark: {e}")
+        traceback.print_exc()
+
 def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rewarder, out_paths: dict, frame_size: tuple = (300, 300)) -> None:
     """
     Launch the benchmarker. Handles CLI evaluation or launches the GUI.
@@ -1079,8 +1063,9 @@ def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rew
         frame_size: Tuple of (width, height) for video frames
     """
     print("\nBenchmark Options:")
-    print("1. Make a Live Benchmark (Auto-Generate)")
-    print("2. Create a New Benchmark (Manual Ranking)")
+    print("1. Make a Live Benchmark (needs GUI)")
+    print("2. Create a New Benchmark (needs GUI)")
+    print("3. Test Rewarder on Existing Benchmark")
     print("0. Exit")
     choice = input("Choose an option: ")
 
@@ -1118,6 +1103,9 @@ def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rew
             on_close=close_handler
         )
         root.mainloop() # Blocks until the Toplevel window (and hidden root) is closed
+    elif choice == '3':
+        print("Testing rewarder on benchmark...")
+        test_rewarder_on_benchmark(simulator, rewarder, out_paths)
     elif choice == '0':
         print("Exiting benchmark tool.")
     else:

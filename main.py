@@ -143,7 +143,7 @@ def print_menu():
     print("\nAlifeHub - Main Menu")
     print("1. Label Pairs (needs GUI)")
     print("2. Quad Labeler (needs GUI)")
-    print("3. Benchmark rewarder (needs GUI)")
+    print("3. Benchmark rewarder")
     print("4. Launch training")
     print("5. Generate pairs (no GUI)")
     print("\n6. Reload new code")

@@ -197,6 +197,18 @@ class Simulator:
         """
         raise NotImplementedError("Must be implemented in inheriting class.")
 
+    def load_output(self, path: str) -> Any:
+        """
+        Load the output from the path.
+
+        Args:
+            path: Path to the file to load the output from. The path is the path to the file to load the output from. No need to specify the extension.
+
+        Returns:
+            The loaded output
+        """
+        raise NotImplementedError("Must be implemented in inheriting class.")
+    
     def load_param(self, path: str) -> Any:
         """
         Load the param from the path.
