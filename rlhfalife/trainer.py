@@ -21,10 +21,9 @@ def launch_training(generator: Generator, rewarder: Rewarder, simulator: Simulat
     print("Training the generator...")
     generator.train(simulator, rewarder)
     
-    print("Training complete!")
+    print("Training complete ! Saving rewarder and generator...")
     
-    if input("Save the rewarder and generator (Possibility will be given to save them after benchmarking)? (y/n)") == "y":
-        rewarder.save()
-        generator.save()
-        print("Rewarder and generator saved!")
+    rewarder.save()
+    generator.save()
+    print("Rewarder and generator saved!")
 
