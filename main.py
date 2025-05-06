@@ -200,55 +200,56 @@ def main():
         choice = print_menu()
         print()
         
-        if choice == "1":
-            launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
-        elif choice == "2":
-            launch_quad_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
-        elif choice == "3":
-            launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
-        elif choice == "4":
-            launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
-        elif choice == "5":
-            try:
-                num_sims = int(input("Enter number of simulations to generate: ") or "5")
-                if num_sims <= 0:
-                    print("Number of simulations must be positive")
-                    continue
-                
-                generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
-            except ValueError:
-                print("Please enter a valid number")
-        elif choice == "6":
-            print("Reloading new code...")            
-            profile_module = load_profile_module(profile)
-            if profile_module is None:
-                exit(1)
-            loader = profile_module.Loader()
-        elif choice == "7":
-            try:
-                new_size = int(input("Enter new frame size (default: 300): ") or "300")
-                if new_size > 0:
-                    args.frame_size = new_size
-                    print(f"Frame size updated to {new_size}")
-                else:
-                    print("Frame size must be positive")
-            except ValueError:
-                print("Please enter a valid number")
-        elif choice == "8":
-            print("Reloading models and data managers...")
-        elif choice == "9":
-            print("\nExport Profile")
-            export_profile_interactive()
-        elif choice.upper() == "A":
-            print("\nAnalyzing Training Dataset")
-            analysis = analyze_existing_dataset(dataset_manager, pairs_manager)
-            print_analysis(analysis)
-            input("\nPress Enter to continue...")
-        elif choice == "0":
-            print("Exiting AlifeHub...")
-            break
-        else:
-            print("Invalid option. Please try again.")
+        match choice:
+            case "1":
+                launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
+            case "2":
+                launch_quad_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
+            case "3":
+                launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
+            case "4":
+                launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
+            case "5":
+                try:
+                    num_sims = int(input("Enter number of simulations to generate: ") or "5")
+                    if num_sims <= 0:
+                        print("Number of simulations must be positive")
+                        continue
+                    
+                    generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
+                except ValueError:
+                    print("Please enter a valid number")
+            case "6":
+                print("Reloading new code...")            
+                profile_module = load_profile_module(profile)
+                if profile_module is None:
+                    exit(1)
+                loader = profile_module.Loader()
+            case "7":
+                try:
+                    new_size = int(input("Enter new frame size (default: 300): ") or "300")
+                    if new_size > 0:
+                        args.frame_size = new_size
+                        print(f"Frame size updated to {new_size}")
+                    else:
+                        print("Frame size must be positive")
+                except ValueError:
+                    print("Please enter a valid number")
+            case "8":
+                print("Reloading models and data managers...")
+            case "9":
+                print("\nExport Profile")
+                export_profile_interactive()
+            case "A" | "a":
+                print("\nAnalyzing Training Dataset")
+                analysis = analyze_existing_dataset(dataset_manager, pairs_manager)
+                print_analysis(analysis)
+                input("\nPress Enter to continue...")
+            case "0":
+                print("Exiting AlifeHub...")
+                break
+            case _:
+                print("Invalid option. Please try again.")
 
 if __name__ == "__main__":
     main()
