@@ -10,6 +10,7 @@ from rlhfalife.trainer import launch_training
 from rlhfalife.utils import *
 from rlhfalife.data_managers import DatasetManager, PairsManager
 from exporter import export_profile_interactive
+from dataset_analyzer import analyze_existing_dataset, print_analysis
 
 def get_available_profiles():
     """Get list of available profiles."""
@@ -150,8 +151,9 @@ def print_menu():
     print("7. Change frame size")
     print("8. Reload models and data managers")
     print("9. Export profile")
+    print("A. Analyze training dataset")
     print("0. Exit")
-    return input("Please choose an option (0-9): ")
+    return input("Please choose an option (0-9, A): ")
 
 def main():
     # Parse command line arguments
@@ -237,6 +239,11 @@ def main():
         elif choice == "9":
             print("\nExport Profile")
             export_profile_interactive()
+        elif choice.upper() == "A":
+            print("\nAnalyzing Training Dataset")
+            analysis = analyze_existing_dataset(dataset_manager, pairs_manager)
+            print_analysis(analysis)
+            input("\nPress Enter to continue...")
         elif choice == "0":
             print("Exiting AlifeHub...")
             break
