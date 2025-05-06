@@ -246,6 +246,14 @@ class PairsManager:
         """
         self.pairs_df = pd.DataFrame(columns=['hash1', 'hash2', 'winner'])
         self.save()
+        
+    def reset_rankings(self):
+        """
+        Reset only the rankings by clearing all winners but keeping the pairs.
+        This preserves the pairs structure but marks them all as unranked.
+        """
+        self.pairs_df['winner'] = None
+        self.save()
 
     def _reindex_pairs(self):
         """
