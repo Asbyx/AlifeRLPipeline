@@ -5,7 +5,7 @@ from PIL import Image, ImageTk
 from tkinter import ttk
 import numpy as np
 import threading
-import itertools
+from collections import Counter
 from rlhfalife.utils import Simulator
 from rlhfalife.data_managers import DatasetManager, PairsManager
 
@@ -278,27 +278,41 @@ class QuadLabelerApp:
     
     def load_next_videos(self):
         """Load the next set of 4 videos."""
-        # Get 4 random unranked hashes
-        all_hashes = self.dataset_manager.get_all_hashes()
+        # Get 4 hashes that have the fewest ranks and are not ranked together
+        all_hashes = self.dataset_manager.get_all_hashes()        
+        ranked_pairs = self.pairs_manager._get_ranked_pairs()
+        hash_rankings = Counter()
         
-        if len(all_hashes) < 4:
+        for _, row in ranked_pairs.iterrows():
+            hash1 = row['hash1']
+            hash2 = row['hash2']
+            hash_rankings[hash1] += 1
+            hash_rankings[hash2] += 1
+        
+        for h in all_hashes:
+            if h not in hash_rankings:
+                hash_rankings[h] = 0
+        
+        # Choose 4 hashes that have the fewest ranks and are not ranked together
+        sorted_hash_rankings = sorted(hash_rankings.items(), key=lambda x: x[1])
+
+        best_hashes = []
+        for h, _ in sorted_hash_rankings:
+            if h not in best_hashes:
+                for h2 in best_hashes:
+                    if (h, h2) in ranked_pairs or (h2, h) in ranked_pairs:
+                        break
+                else:
+                    best_hashes.append(h)
+            if len(best_hashes) == 4:
+                break
+        
+        if len(best_hashes) < 4:
             self.prompt_generate_new_videos()
             return
         
-        # Try to find 4 hashes that haven't been ranked together before
-        # This is a simple approach - more sophisticated selection possible
-        sample_size = min(20, len(all_hashes))  # Limit search space for efficiency
-        candidate_hashes = np.random.choice(all_hashes, sample_size, replace=False)
-        
-        # Choose 4 hashes that have the fewest pairs already ranked between them
-        best_hashes = self.find_best_hashes(candidate_hashes)
-        
-        if not best_hashes or len(best_hashes) < 4:
-            # If we couldn't find a good set, just take 4 random ones
-            self.current_hashes = np.random.choice(all_hashes, 4, replace=False)
-        else:
-            self.current_hashes = best_hashes
-        
+        self.current_hashes = best_hashes
+
         # Clear any existing video widgets
         self.clear_video_widgets()
         
@@ -319,53 +333,6 @@ class QuadLabelerApp:
         # Create the video widgets
         self.create_video_widgets(video_paths)
     
-    def find_best_hashes(self, candidate_hashes):
-        """Find 4 hashes with minimal existing ranked pairs between them."""
-        if len(candidate_hashes) < 4:
-            return None
-        
-        # Get all possible sets of 4 hashes
-        hash_combinations = list(itertools.combinations(candidate_hashes, 4))
-        
-        if not hash_combinations:
-            return None
-        
-        # Choose a random subset to check (for efficiency)
-        subset_size = min(10, len(hash_combinations))
-        # Fix: np.random.choice can't handle list of tuples directly
-        # Use random indices instead
-        random_indices = np.random.choice(len(hash_combinations), subset_size, replace=False)
-        hash_combinations_subset = [hash_combinations[i] for i in random_indices]
-        
-        best_combination = None
-        min_ranked_pairs = float('inf')
-        
-        for hashes in hash_combinations_subset:
-            # Count how many pairs among these 4 are already ranked
-            pairs = list(itertools.combinations(hashes, 2))
-            ranked_count = 0
-            
-            for h1, h2 in pairs:
-                # Check if this pair exists in ranked pairs
-                pair_exists = self.pairs_manager._get_ranked_pairs()[
-                    ((self.pairs_manager._get_ranked_pairs()['hash1'] == h1) & 
-                     (self.pairs_manager._get_ranked_pairs()['hash2'] == h2)) |
-                    ((self.pairs_manager._get_ranked_pairs()['hash1'] == h2) & 
-                     (self.pairs_manager._get_ranked_pairs()['hash2'] == h1))
-                ].shape[0] > 0
-                
-                if pair_exists:
-                    ranked_count += 1
-            
-            if ranked_count < min_ranked_pairs:
-                min_ranked_pairs = ranked_count
-                best_combination = hashes
-                
-                # If we found a combination with no ranked pairs, return immediately
-                if min_ranked_pairs == 0:
-                    break
-        
-        return best_combination
     
     def create_video_widgets(self, video_paths):
         """Create the draggable video widgets."""
