@@ -149,7 +149,7 @@ def print_menu():
     print("5. Generate pairs (no GUI)")
     print("\n6. Reload new code")
     print("7. Change frame size")
-    print("8. Reload models and data managers")
+    print("8. Reload models and data managers (updates config)")
     print("9. Export profile")
     print("A. Analyze training dataset")
     print("B. Reset rankings (keep pairs)")
@@ -238,6 +238,8 @@ def main():
                     print("Please enter a valid number")
             case "8":
                 print("Reloading models and data managers...")
+                config_file_path = os.path.join("profiles", profile, "configs", f"{config}.json")
+                config_dict = json.load(open(config_file_path))
             case "9":
                 print("\nExport Profile")
                 export_profile_interactive()
