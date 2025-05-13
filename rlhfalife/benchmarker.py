@@ -93,10 +93,10 @@ class LiveBenchmarkApp:
             print(f"Unique parameters: {len(self.params)}, over 10 generated.")
             print("="*50 + "\n")
 
-        self.update_status("Running simulators...")
+        self.update_status("Running simulations...")
         outputs = self.simulator.run(self.params)
         
-        self.update_status("Scoring simulators...")
+        self.update_status("Scoring simulations...")
         self.scores = self.rewarder.rank(outputs)
 
         self.update_status("Saving videos...")

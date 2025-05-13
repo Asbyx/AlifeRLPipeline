@@ -166,7 +166,7 @@ class VideoLabelerApp:
 
     def prompt_generate_new_pairs(self):
         """Prompt the user to generate new pairs."""
-        num_pairs = simpledialog.askinteger("Generate Pairs", "No more pairs available. How many new pairs to generate?", minvalue=1)
+        num_pairs = simpledialog.askinteger("Generate Pairs", "No more pairs available. How many new simulations to run ?", minvalue=1)
         if num_pairs:
             self.generate_new_pairs(num_pairs)
 
