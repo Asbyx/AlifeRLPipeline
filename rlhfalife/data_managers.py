@@ -433,20 +433,24 @@ class TrainingDataset:
         
         # Prepare the data
         self.data = []
-        simulations = set()
+        self.simulations = set()
         for _, row in ranked_pairs.iterrows():
             hash1 = row['hash1']
             hash2 = row['hash2']
             winner = 0 if row['winner'] == hash1 else 1
-            simulations.add(hash1)
-            simulations.add(hash2)
+            self.simulations.add(hash1)
+            self.simulations.add(hash2)
             
             # Get the output paths
             output_path1 = dataset_manager.get_output_paths([hash1])[0]
             output_path2 = dataset_manager.get_output_paths([hash2])[0]
             
             self.data.append((output_path1, output_path2, winner))
-        self.simulations_number = len(simulations)
+        self.simulations_number = len(self.simulations)
+
+    def get_simulations_hashes(self) -> List[str]:
+        """Get the hashes of the simulations in the dataset."""
+        return list(self.simulations)
 
     def __len__(self) -> int:
         """
