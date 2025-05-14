@@ -152,7 +152,7 @@ def print_menu():
     print("8. Reload models and data managers (updates config)")
     print("9. Export profile")
     print("A. Analyze training dataset")
-    print("B. Reset rankings (keep pairs)")
+    print("B. Reset labels (keep simulations and pairs)")
     print("0. Exit")
     return input("Please choose an option (0-9, A-B): ")
 
@@ -249,14 +249,13 @@ def main():
                 print_analysis(analysis)
                 input("\nPress Enter to continue...")
             case "B" | "b":
-                print("\nResetting Rankings (keeping pairs)")
-                confirmation = input("Are you sure you want to reset all rankings? This will clear all winners. (y/n): ")
+                print("Resetting Labels ")
+                confirmation = input("Are you sure you want to reset all labels? This will clear all winners. (y/n): ")
                 if confirmation.lower() == 'y':
                     pairs_manager.reset_rankings()
                     print(f"All rankings have been reset. Number of unranked pairs: {pairs_manager.get_nb_unranked_pairs()}")
                 else:
                     print("Reset operation cancelled.")
-                input("\nPress Enter to continue...")
             case "0":
                 print("Exiting AlifeHub...")
                 break
