@@ -284,8 +284,12 @@ class CreateBenchmarkApp:
         button_frame.pack(pady=10)
         
         # Save benchmark button
-        self.save_button = ttk.Button(button_frame, text="Save Benchmark", command=self.save_benchmark)
+        self.save_button = ttk.Button(button_frame, text="Save Benchmark as default", command=self.save_benchmark)
         self.save_button.pack(side=tk.LEFT, padx=5)
+        
+        # Save benchmark as button
+        self.save_as_button = ttk.Button(button_frame, text="Save Benchmark in custom location", command=self.save_benchmark_as)
+        self.save_as_button.pack(side=tk.LEFT, padx=5)
         
         # Generate new videos button
         self.generate_button = ttk.Button(button_frame, text="Generate New Videos", command=self.generate_videos)
@@ -327,6 +331,7 @@ class CreateBenchmarkApp:
         self.status_label.config(text="Generating videos...")
         self.generate_button.config(state=tk.DISABLED)
         self.save_button.config(state=tk.DISABLED)
+        self.save_as_button.config(state=tk.DISABLED)
         self.master.update_idletasks() # Ensure UI updates before starting thread
 
         # Start generation in a new thread
@@ -434,6 +439,7 @@ class CreateBenchmarkApp:
          # Re-enable buttons
          self.generate_button.config(state=tk.NORMAL)
          self.save_button.config(state=tk.NORMAL)
+         self.save_as_button.config(state=tk.NORMAL)
          self._is_generating = False
 
     def create_video_widgets(self):
@@ -663,14 +669,38 @@ class CreateBenchmarkApp:
         self.master.update_idletasks()
         # Potentially recalculate and set geometry here if needed
 
-    def save_benchmark(self):
-        """Save the current ranking as a benchmark."""
+    def save_benchmark_as(self):
+        """Save the benchmark in a user-selected location."""
         if not self.outputs or not self.hashs:
             messagebox.showinfo("Info", "No outputs to save.")
             return
         
-        # clear benchmark directory
+        # Ask user for directory
+        from tkinter import filedialog
+        custom_dir = filedialog.askdirectory(
+            title="Select Directory to Save Benchmark",
+            initialdir=os.path.dirname(self.out_paths["benchmark"])
+        )
+        
+        if not custom_dir:  # User cancelled
+            return
+            
+        # Save to the selected directory
+        self._save_benchmark_to_location(custom_dir)
+    
+    def save_benchmark(self):
+        """Save the current ranking as a benchmark to the default location."""
+        if not self.outputs or not self.hashs:
+            messagebox.showinfo("Info", "No outputs to save.")
+            return
+        
+        # Use the default benchmark directory
         benchmark_dir = self.out_paths["benchmark"]
+        self._save_benchmark_to_location(benchmark_dir)
+        
+    def _save_benchmark_to_location(self, benchmark_dir):
+        """Save the benchmark to the specified location."""
+        # Create directory if it doesn't exist
         if os.path.exists(benchmark_dir):
             shutil.rmtree(benchmark_dir)
         os.makedirs(benchmark_dir, exist_ok=True)
@@ -952,7 +982,8 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
     Args:
         simulator: The simulator to use for loading outputs
         rewarder: The rewarder to test
-        out_paths: Dictionary containing paths to outputs
+        out_paths: Dictionary containing a "benchmark" key with the path to the benchmark
+            this is the path to the directory containing the benchmark.csv file and the outputs
     """
     benchmark_file = os.path.join(out_paths["benchmark"], "benchmark.csv")
     
@@ -1032,12 +1063,26 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
 
         # Sort by benchmark rank for first display
         benchmark_sorted_df = results_df.sort_values('Benchmark Rank')
-
-        # Sort the columns
         benchmark_sorted_df = benchmark_sorted_df[['Hash', 'Benchmark Rank', 'Rewarder Ranking', 'Rewarder Score', 'Rank Error']]
+
+        pair_wise_accuracy = 0
+        for i in range(len(benchmark_sorted_df)):
+            for j in range(i+1, len(benchmark_sorted_df)):
+                benchmark_i = benchmark_sorted_df.iloc[i]["Benchmark Rank"]
+                benchmark_j = benchmark_sorted_df.iloc[j]["Benchmark Rank"]
+                rewarder_i = benchmark_sorted_df.iloc[i]["Rewarder Ranking"]
+                rewarder_j = benchmark_sorted_df.iloc[j]["Rewarder Ranking"]
+                
+                # If the ordering is the same in both rankings +1 pt
+                if (benchmark_i < benchmark_j and rewarder_i < rewarder_j) or \
+                   (benchmark_i > benchmark_j and rewarder_i > rewarder_j):
+                    pair_wise_accuracy += 1
+        pair_wise_accuracy /= (len(benchmark_sorted_df) * (len(benchmark_sorted_df) - 1) / 2)
+        
         
         # Display results
         print("\n===== REWARDER EVALUATION RESULTS =====")
+        print(f"{pair_wise_accuracy:>6.2f}  Pair-wise Accuracy [0 to 1, > 0.9 is good]")
         print(f"{avg_rank_error:>6.2f}  Average Rank Error")
         print(f"{kendall_tau:>+6.2f}  Kendall Tau Correlation [-1 to 1]")
         print(f"{top_3_precision:>6.2f}  Top 3 Precision [0 to 1]")
@@ -1046,6 +1091,7 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
         print("\nResults sorted by Benchmark Rank:")
         print(benchmark_sorted_df.to_string(index=False))
         print("="*100)
+        return pair_wise_accuracy
         
     except Exception as e:
         print(f"Error testing rewarder on benchmark: {e}")
@@ -1065,7 +1111,7 @@ def launch_benchmarker(simulator: Simulator, generator: Generator, rewarder: Rew
     print("\nBenchmark Options:")
     print("1. Make a Live Benchmark (needs GUI)")
     print("2. Create a New Benchmark (needs GUI)")
-    print("3. Test Rewarder on Existing Benchmark")
+    print("3. Test Rewarder on default benchmark")
     print("0. Exit")
     choice = input("Choose an option: ")
 
