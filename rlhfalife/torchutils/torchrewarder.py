@@ -1,4 +1,4 @@
-from ..utils import Rewarder
+from ..utils import Rewarder, Simulator
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,8 +8,9 @@ import random
 import numpy as np
 from ..data_managers import TrainingDataset
 import hashlib
-from typing import List, Any
+from typing import List, Any, Optional
 import wandb
+from ..benchmarker import test_rewarder_on_benchmark
 
 class TorchRewarder(nn.Module, Rewarder):
     """
@@ -19,7 +20,7 @@ class TorchRewarder(nn.Module, Rewarder):
 
     Note: using this class assume that the outputs are torch tensors (dtype=torch.float32) saved as pt files, with torch.save.
     """
-    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", wandb_params: dict = None):
+    def __init__(self, config: dict, model_path: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", simulator: Optional[Simulator] = None, wandb_params: dict = None):
         """
         Initialize the TorchRewarder.
     
@@ -31,8 +32,10 @@ class TorchRewarder(nn.Module, Rewarder):
                 val_split (default 0.2): Validation split
                 early_stopping_patience (default 10): Early stopping patience
                 loss (default "cross_entropy"): Loss function to use. Can be "margin" or "cross_entropy".
+                test_set_path (default None): Path to the test set.
             model_path: Path to save or load the model
             device: Device to run the model on. Defaults to "cuda" if available, otherwise "cpu".
+            simulator: Optional Simulator instance, required for test set evaluation.
             wandb_params: Dictionary containing wandb parameters. Defaults to None.
         """
         nn.Module.__init__(self)
@@ -41,6 +44,7 @@ class TorchRewarder(nn.Module, Rewarder):
         self.optimizer = None
         self.model_path = model_path
         self.wandb_params = wandb_params
+        self.simulator = simulator
         
         def cross_entropy_loss(scores1, scores2, y):
             p = torch.exp(scores2) / (torch.exp(scores1) + torch.exp(scores2)) # as y = 0 means "left win", p = P("right wins")
@@ -50,6 +54,16 @@ class TorchRewarder(nn.Module, Rewarder):
             "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y*2-1, margin=0.1), # convert to {-1, 1}
             "cross_entropy": cross_entropy_loss
         }[self.config.get('loss', 'cross_entropy')]
+
+        if self.config.get('test_set_path', None) is not None:
+            self.test_set = {"benchmark": self.config['test_set_path']}
+            if self.simulator:
+                print(f"Using test set from {self.config['test_set_path']}")
+            else:
+                print(f"Test set path provided ({self.config['test_set_path']}), but Simulator instance is missing. Test set evaluation will be skipped.")
+        else:
+            print("No test set provided. To create a test set, first create a benchmark and save it in a custom path, then provide the path to the test set in the config under the 'test_set_path' key.")
+            self.test_set = None
 
     #-------- Methods to implement --------#
     def forward(self, x):
@@ -270,7 +284,8 @@ class TorchRewarder(nn.Module, Rewarder):
 
     def _log_progress(self, epoch: int, epochs: int,
                      train_loss: float, train_accuracy: float,
-                     val_loss: float, val_accuracy: float):
+                     val_loss: float, val_accuracy: float,
+                     test_pairwise_accuracy: Optional[float] = None):
         """
         Log training progress to console and wandb if configured.
         
@@ -281,20 +296,26 @@ class TorchRewarder(nn.Module, Rewarder):
             train_accuracy: Training accuracy
             val_loss: Validation loss
             val_accuracy: Validation accuracy
+            test_pairwise_accuracy: Test set pairwise accuracy (optional)
         """
+        log_data = {
+            "train_loss": train_loss,
+            "train_accuracy": train_accuracy,
+            "val_loss": val_loss,
+            "val_accuracy": val_accuracy
+        }
+        if test_pairwise_accuracy is not None and not np.isnan(test_pairwise_accuracy):
+            log_data["test_pairwise_accuracy"] = test_pairwise_accuracy
+
         if self.wandb_params:
-            log_data = {
-                "train_loss": train_loss,
-                "train_accuracy": train_accuracy,
-                "val_loss": val_loss,
-                "val_accuracy": val_accuracy
-            }
             self.wandb_run.log(log_data)
         
         if epoch % 10 == 0 or epoch == epochs - 1:
             print(f"Epoch {epoch+1}/{epochs}:")
             print(f"  Mean Train Loss: {train_loss:.4f}, Mean Train Accuracy: {train_accuracy:.4f}")
             print(f"  Mean Val Loss: {val_loss:.4f}, Mean Val Accuracy: {val_accuracy:.4f}")
+            if test_pairwise_accuracy is not None and not np.isnan(test_pairwise_accuracy):
+                print(f"  Test Pairwise Accuracy: {test_pairwise_accuracy:.4f}")
 
     def train(self, dataset: TrainingDataset):
         """
@@ -341,10 +362,23 @@ class TorchRewarder(nn.Module, Rewarder):
                 self._get_batches(dataset, val_indices, batch_size)
             )
             
+            # Test set evaluation
+            test_pairwise_accuracy = float('nan') # Initialize with nan
+            if self.test_set and self.simulator:
+                # Ensure the rewarder is in eval mode for testing
+                super().train(False)
+                test_pairwise_accuracy = test_rewarder_on_benchmark(
+                    simulator=self.simulator, 
+                    rewarder=self, 
+                    out_paths=self.test_set, 
+                    verbose=False
+                )
+
             # Log progress
             self._log_progress(epoch, epochs,
                                 train_loss, train_accuracy,
-                                val_loss, val_accuracy)
+                                val_loss, val_accuracy,
+                                test_pairwise_accuracy) # Pass test_pairwise_accuracy
             
             # Early stopping and model checkpointing
             if val_loss < best_val_loss:

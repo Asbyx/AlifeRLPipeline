@@ -975,7 +975,7 @@ class DraggableVideo(tk.Frame):
         if self.cap and self.cap.isOpened():
             self.cap.release()
 
-def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_paths: dict) -> None:
+def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_paths: dict, verbose: bool = True) -> None:
     """
     Test the rewarder against a benchmark.
     
@@ -984,7 +984,13 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
         rewarder: The rewarder to test
         out_paths: Dictionary containing a "benchmark" key with the path to the benchmark
             this is the path to the directory containing the benchmark.csv file and the outputs
+        verbose: Whether to print detailed progress and results
     """
+    def print_v(*args, **kwargs):
+        """Print only if verbose is True."""
+        if verbose:
+            print(*args, **kwargs)
+    
     benchmark_file = os.path.join(out_paths["benchmark"], "benchmark.csv")
     
     # Check if benchmark exists
@@ -993,7 +999,7 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
         print("Please create a benchmark first using option 2.")
         return
     
-    print(f"Loading benchmark from {benchmark_file}")
+    print_v(f"Loading benchmark from {benchmark_file}")
     try:
         # Load benchmark data
         benchmark_df = pd.read_csv(benchmark_file, dtype={'hash': str})
@@ -1008,7 +1014,7 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
             return
         
         # Load outputs
-        print("Loading simulation outputs...")
+        print_v("Loading simulation outputs...")
         outputs = []
         hashes = []
         total_outputs = len(benchmark_df)
@@ -1018,8 +1024,9 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
             output_path = os.path.join(out_paths["benchmark"], hash_val)
             try:
                 # Show progress
-                progress = f"[{i+1}/{total_outputs}]"
-                print(f"{progress} Loading output for hash {hash_val}...", end="\r")
+                if verbose:
+                    progress = f"[{i+1}/{total_outputs}]"
+                    print(f"{progress} Loading output for hash {hash_val}...", end="\r")
                 
                 output = simulator.load_output(output_path)
                 outputs.append(output)
@@ -1027,13 +1034,13 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
                 print(f"\nError loading output for hash {hash_val}: {e}")
                 return
         
-        print(f"Loaded all {total_outputs} outputs successfully.            ")
+        print_v(f"Loaded all {total_outputs} outputs successfully.            ")
         
         # Get ranks from benchmark
         benchmark_ranks = benchmark_df['rank'].tolist()
         
         # Get scores from rewarder
-        print("Ranking using the rewarder...")
+        print_v("Ranking using the rewarder...")
         rewarder_scores = rewarder.rank(outputs)
         
         # Create results dataframe for display
@@ -1081,16 +1088,16 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
         
         
         # Display results
-        print("\n===== REWARDER EVALUATION RESULTS =====")
-        print(f"{pair_wise_accuracy:>6.2f}  Pair-wise Accuracy [0 to 1, > 0.9 is good]")
-        print(f"{avg_rank_error:>6.2f}  Average Rank Error")
-        print(f"{kendall_tau:>+6.2f}  Kendall Tau Correlation [-1 to 1]")
-        print(f"{top_3_precision:>6.2f}  Top 3 Precision [0 to 1]")
-        print(f"{bottom_3_precision:>6.2f}  Bottom 3 Precision [0 to 1]")
+        print_v("\n===== REWARDER EVALUATION RESULTS =====")
+        print_v(f"{pair_wise_accuracy:>6.2f}  Pair-wise Accuracy [0 to 1, > 0.9 is good]")
+        print_v(f"{avg_rank_error:>6.2f}  Average Rank Error")
+        print_v(f"{kendall_tau:>+6.2f}  Kendall Tau Correlation [-1 to 1]")
+        print_v(f"{top_3_precision:>6.2f}  Top 3 Precision [0 to 1]")
+        print_v(f"{bottom_3_precision:>6.2f}  Bottom 3 Precision [0 to 1]")
         
-        print("\nResults sorted by Benchmark Rank:")
-        print(benchmark_sorted_df.to_string(index=False))
-        print("="*100)
+        print_v("\nResults sorted by Benchmark Rank:")
+        print_v(benchmark_sorted_df.to_string(index=False))
+        print_v("="*100)
         return pair_wise_accuracy
         
     except Exception as e:
