@@ -437,7 +437,9 @@ class TrainingDataset:
         for _, row in ranked_pairs.iterrows():
             hash1 = row['hash1']
             hash2 = row['hash2']
-            winner = 0 if row['winner'] == hash1 else 1
+
+            winner = int(row['winner']) # CHANGED THIS TO WORK WITH THE NEW DATASET FORMAT !!!!!
+
             self.simulations.add(hash1)
             self.simulations.add(hash2)
             
