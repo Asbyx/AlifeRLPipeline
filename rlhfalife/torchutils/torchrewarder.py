@@ -11,6 +11,7 @@ import hashlib
 from typing import List, Any, Optional
 import wandb
 from ..benchmarker import test_rewarder_on_benchmark
+from tqdm import tqdm
 
 class TorchRewarder(nn.Module, Rewarder):
     """
@@ -42,6 +43,8 @@ class TorchRewarder(nn.Module, Rewarder):
         self.config = config or {}
         self.device = device
         self.optimizer = None
+        self.lr_scheduler = None
+
         self.model_path = model_path
         self.wandb_params = wandb_params
         self.simulator = simulator
@@ -49,7 +52,19 @@ class TorchRewarder(nn.Module, Rewarder):
         def cross_entropy_loss(scores1, scores2, y):
             p = torch.exp(scores2) / (torch.exp(scores1) + torch.exp(scores2)) # as y = 0 means "left win", p = P("right wins")
             return -torch.sum(y * torch.log(p + 1e-10) + (1 - y) * torch.log(1 - p + 1e-10))
+            # TODO :Should use mean, but should adapt rest of code otherwise logging is false
+            # return -torch.mean(y * torch.log(p + 1e-10) + (1 - y) * torch.log(1 - p + 1e-10)) 
         
+        def torch_xent(scores1, scores2, y):
+            """
+                I added this just in case, in principle its more stable than the re-implementation above.
+            """
+            rewards = torch.stack([scores1, scores2],dim=1) # (B,2) 
+
+            loss = F.cross_entropy(rewards, y.long(), reduction='mean')# (B,)
+
+            return loss
+
         self.loss = {
             "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y*2-1, margin=0.1), # convert to {-1, 1}
             "cross_entropy": cross_entropy_loss
@@ -97,6 +112,17 @@ class TorchRewarder(nn.Module, Rewarder):
         lr = self.config.get('lr', 0.001)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
     
+    def _setup_lr_scheduler(self):
+        """
+            Set up the learning rate scheduler using the config parameters.
+            Uses a linear warmup by default.
+        """
+        warmup = self.config.get('warmup', True) # Use linear warmup by default
+        if warmup:
+            self.lr_scheduler = optim.lr_scheduler.LinearLR(self.optimizer, start_factor=1e-5, end_factor=1.0, total_iters=100)
+        else:
+            self.lr_scheduler = optim.lr_scheduler.ConstantLR(self.optimizer, factor=1.0) # Do nothing, basically
+
     def rank(self, data):
         """
         Rank the data based on the model's predictions.
@@ -193,6 +219,8 @@ class TorchRewarder(nn.Module, Rewarder):
                 batch_count += 1
         
         avg_loss = total_loss / batch_count / batch_size if batch_count > 0 else 0
+        # TODO : Replace by below (I think) for correct average when using mean loss
+        # avg_loss = total_loss / batch_count if batch_count > 0 else 0
         accuracy = correct / total if total > 0 else 0
         
         return avg_loss, accuracy
@@ -241,7 +269,7 @@ class TorchRewarder(nn.Module, Rewarder):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        
+        self.lr_scheduler.step()
         # Calculate metrics
         predictions = (scores1 < scores2).int()
         correct = (predictions == batch_winners).sum().item()
@@ -278,6 +306,9 @@ class TorchRewarder(nn.Module, Rewarder):
             batch_count += 1
         
         avg_loss = total_loss / batch_count / batch_size if batch_count > 0 else 0
+        
+        # TODO : Replace by below (I think) for correct average when using mean loss
+        # avg_loss = total_loss / batch_count if batch_count > 0 else 0
         accuracy = correct / total if total > 0 else 0
         
         return avg_loss, accuracy
@@ -299,10 +330,12 @@ class TorchRewarder(nn.Module, Rewarder):
             test_pairwise_accuracy: Test set pairwise accuracy (optional)
         """
         log_data = {
-            "train_loss": train_loss,
-            "train_accuracy": train_accuracy,
-            "val_loss": val_loss,
-            "val_accuracy": val_accuracy
+            "metrics/train_loss": train_loss,
+            "metrics/train_accuracy": train_accuracy,
+            "metrics/val_loss": val_loss,
+            "metrics/val_accuracy": val_accuracy,
+            "other/epoch": epoch,
+            "other/lr": self.optimizer.param_groups[0]['lr'],
         }
         if test_pairwise_accuracy is not None and not np.isnan(test_pairwise_accuracy):
             log_data["test_pairwise_accuracy"] = test_pairwise_accuracy
@@ -333,7 +366,8 @@ class TorchRewarder(nn.Module, Rewarder):
             raise ValueError("Optimizer not set up. Call __init__ method at initialization of the child class.")
         
         self._setup_optimizer()
-
+        self._setup_lr_scheduler()
+    
         if self.wandb_params:
             self.wandb_run = wandb.init(**self.wandb_params)
 
@@ -352,7 +386,7 @@ class TorchRewarder(nn.Module, Rewarder):
         patience_counter = 0
         
         # Training loop
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             # Train for one epoch
             super().train()
             train_loss, train_accuracy = self._train_single_epoch(train_indices, dataset, batch_size)
@@ -471,10 +505,10 @@ class TorchRewarder(nn.Module, Rewarder):
         # If preprocessed file exists and is newer than original, load it
         if os.path.exists(preprocessed_path):
             if os.path.getmtime(preprocessed_path) >= os.path.getmtime(data_path):
-                return torch.load(preprocessed_path, map_location=self.device)
+                return torch.load(preprocessed_path, map_location=self.device, weights_only=True)
         
         # Otherwise preprocess and save
-        data = torch.load(data_path, map_location=self.device)
+        data = torch.load(data_path, map_location=self.device, weights_only=True)
         preprocessed_data = self.preprocess([data])[0]
         torch.save(preprocessed_data, preprocessed_path)
         return preprocessed_data
