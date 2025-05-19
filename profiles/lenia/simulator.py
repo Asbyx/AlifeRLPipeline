@@ -20,7 +20,7 @@ class LeniaSimulator(Simulator):
     """
 
     def __init__(
-        self, generator: Generator, lenia_automaton: Lenia, run_length: int, frame_portion: int = 5, num_output_frames: int = 12, device='cpu'
+        self, generator: Generator, lenia_automaton: Lenia, run_length: int, frame_portion: int = 5, num_output_frames: int = 12, init_circle=False, device='cpu'
     ):
         """
         Initializes the simulator
@@ -40,7 +40,8 @@ class LeniaSimulator(Simulator):
         self.num_output_frames = num_output_frames
         self.mlenia.to(device)  # move the lenia automaton to the device
         self.max_batch = 20 # TODO : make this a parameter of the simulation
-    
+
+        self.init_circle = init_circle
     # -------- To implement --------#
     def run(self, params: List[LeniaParams]) -> List[Any]:
         """
@@ -73,7 +74,10 @@ class LeniaSimulator(Simulator):
         all_outputs = []
         for batch_params in tqdm(all_batch_params):
             self.mlenia.update_params(batch_params)  # update the parameters of the simulation
-            self.mlenia.set_init_fractal()
+            if self.init_circle:
+                self.mlenia.set_init_circle()
+            else:
+                self.mlenia.set_init_perlin()
             B = self.mlenia.batch
             H, W = self.mlenia.h, self.mlenia.w
             C = self.mlenia.C
