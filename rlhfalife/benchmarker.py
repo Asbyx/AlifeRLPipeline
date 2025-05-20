@@ -24,6 +24,7 @@ class LiveBenchmarkApp:
         self.out_paths = out_paths
         self.frame_size = frame_size
         self.on_close_handler = on_close
+        self.thread = None
         
         self.scores = []
         self.videos = []
@@ -77,7 +78,8 @@ class LiveBenchmarkApp:
         
     def run_benchmark(self):
         """Start the benchmarking process in a separate thread."""
-        threading.Thread(target=self.benchmark_process).start()
+        self.thread = threading.Thread(target=self.benchmark_process)
+        self.thread.start()
 
     def benchmark_process(self):
         """Run the benchmark process: generate parameters, run simulations, and score them."""
@@ -186,6 +188,10 @@ class LiveBenchmarkApp:
     def on_close(self):
         """Handle window close event."""
         # Release video resources
+        if self.thread:
+            self.thread.join(1)
+            self.thread = None
+
         if hasattr(self, 'cap') and self.cap:
             self.cap.release()
 
@@ -224,6 +230,7 @@ class CreateBenchmarkApp:
         self.out_paths = out_paths
         self.frame_size = frame_size
         self.on_close_handler = on_close
+        self.thread = None
         
         self.videos = []
         self.params = []
@@ -335,7 +342,8 @@ class CreateBenchmarkApp:
         self.master.update_idletasks() # Ensure UI updates before starting thread
 
         # Start generation in a new thread
-        threading.Thread(target=self._generation_worker, daemon=True).start()
+        self.thread = threading.Thread(target=self._generation_worker, daemon=True)
+        self.thread.start()
 
     def _update_status_safe(self, message):
         """Safely update the status label from any thread."""
@@ -429,6 +437,9 @@ class CreateBenchmarkApp:
             except tk.TclError as e:
                 print(f"Could not make window fullscreen: {e}")
 
+        if self.thread:
+            self.thread.join(1)
+            self.thread = None
 
         self._reset_ui_after_generation()
 
@@ -824,6 +835,10 @@ class CreateBenchmarkApp:
         """Handle window close event."""
         # Release video resources
         self.clear_video_widgets()
+        
+        if self.thread:
+            self.thread.join()
+            self.thread = None
         
         # Delete temporary videos
         for video_path in self.videos:
