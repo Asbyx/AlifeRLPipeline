@@ -308,14 +308,13 @@ class PairsManager:
         """Save the pairs to the CSV file."""
         self.pairs_df.to_csv(self.pairs_path, index=False)
     
-    def _add_pair(self, hash1: str, hash2: str, winner: Optional[str] = None):
+    def _add_pair(self, hash1: str, hash2: str, winner: Optional[float] = None):
         """
         Add a new pair to the dataset.
         
         Args:
             hash1: Hash value of the first simulation
             hash2: Hash value of the second simulation
-            winner: Optional hash value of the winner
         """
         # Check if the pair already exists
         existing_pair = self.pairs_df[
@@ -324,14 +323,9 @@ class PairsManager:
         ]
         
         if len(existing_pair) > 0:
-            # Update the existing pair
-            if winner is not None:
-                idx = existing_pair.index[0]
-                # Ensure the winner matches one of the hashes
-                if winner in [hash1, hash2]:
-                    self.pairs_df.at[idx, 'winner'] = winner
+            idx = existing_pair.index[0]
+            self.pairs_df.at[idx, 'winner'] = winner
         else:
-            # Add a new pair
             new_pair = pd.DataFrame({
                 'hash1': [hash1],
                 'hash2': [hash2],
@@ -342,7 +336,7 @@ class PairsManager:
         # Save the updated pairs
         self.save()
     
-    def add_pairs(self, pairs: List[Tuple[str, str]], winners: Optional[List[str]] = None):
+    def add_pairs(self, pairs: List[Tuple[str, str]], winners: Optional[List[float]] = None):
         """
         Add multiple pairs to the dataset.
         
@@ -354,7 +348,7 @@ class PairsManager:
             winners = [None] * len(pairs)
         
         for i, (hash1, hash2) in enumerate(pairs):
-            self._add_pair(hash1, hash2, winners[i] if i < len(winners) else None)
+            self._add_pair(hash1, hash2, winners[i])
         self._reindex_pairs()
     
     def _get_unranked_pairs(self) -> pd.DataFrame:
@@ -365,17 +359,17 @@ class PairsManager:
         """Get all ranked pairs (where winner is not null)."""
         return self.pairs_df[self.pairs_df['winner'].notnull()].reset_index(drop=True).copy()
     
-    def set_winner(self, hash1: str, hash2: str, winner: int):
+    def set_winner(self, hash1: str, hash2: str, winner: float):
         """
         Set the winner for a pair.
         
         Args:
             hash1: Hash value of the first simulation
             hash2: Hash value of the second simulation
-            winner: 0 or 1 (0 for hash1, 1 for hash2)
+            winner: float in [0, 1] (0=hash1 wins, 1=hash2 wins, 0.5=draw)
         """
-        if winner not in [0, 1]:
-            raise ValueError(f"Winner ({winner}) must be either 0 or 1")
+        if winner < 0 or winner > 1:
+            raise ValueError(f"Winner ({winner}) must be a float in [0, 1]")
         
         # Find the pair
         pair_idx = self.pairs_df[
@@ -440,7 +434,7 @@ class TrainingDataset:
             hash1 = row['hash1']
             hash2 = row['hash2']
 
-            winner = int(row['winner']) # CHANGED THIS TO WORK WITH THE NEW DATASET FORMAT !!!!!
+            winner = float(row['winner'])
 
             self.simulations.add(hash1)
             self.simulations.add(hash2)
@@ -462,18 +456,18 @@ class TrainingDataset:
         """
         return len(self.data)
 
-    def __getitem__(self, index: int) -> Tuple[str, str, int]:
+    def __getitem__(self, index: int) -> Tuple[str, str, float]:
         """
         Get the pair at the given index.
 
         Returns:
-            A tuple containing the path_to_output_1, path_to_output_2, {0, 1} (winner is 0 for left, 1 for right)
+            A tuple containing the path_to_output_1, path_to_output_2, winner (float in [0, 1], 0 for hash1 wins, 1 for hash2 wins, 0.5 for draw)
         """
         if index < 0 or index >= len(self.data):
             raise IndexError("Index out of bounds")
         return self.data[index]
 
-    def __iter__(self) -> Iterator[Tuple[str, str, int]]:
+    def __iter__(self) -> Iterator[Tuple[str, str, float]]:
         """
         Get an iterator over the pairs
 

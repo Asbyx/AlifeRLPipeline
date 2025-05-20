@@ -194,6 +194,12 @@ class QuadLabelerApp:
         self.current_hashes = []
         self.video_widgets = []
         
+        # Relationships between adjacent videos (e.g., '<' or '=')
+        # For 4 videos, there are 3 relationships. Default to '<'.
+        self.relationships = ['<'] * 3 
+        self.relationship_button_frames = [] # Frames holding the < and = buttons
+        self.relationship_buttons_widgets = [] # Stores (less_btn, equal_btn) tuples
+
         # Create widgets
         self.create_widgets()
         self.bind_keys()
@@ -220,7 +226,7 @@ class QuadLabelerApp:
         self.title_frame.pack(pady=10)
         
         title_label = tk.Label(self.title_frame, 
-                              text="Drag videos to rank them in order (best to worst)",
+                              text="Drag videos to order. Use buttons (<, =) to set relationships.",
                               font=("Arial", 14))
         title_label.pack()
         
@@ -280,14 +286,18 @@ class QuadLabelerApp:
         """Load the next set of 4 videos."""
         # Get 4 hashes that have the fewest ranks and are not ranked together
         all_hashes = self.dataset_manager.get_all_hashes()        
-        ranked_pairs = self.pairs_manager._get_ranked_pairs()
+        ranked_pairs_df = self.pairs_manager._get_ranked_pairs() # Renamed for clarity
         hash_rankings = Counter()
         
-        for _, row in ranked_pairs.iterrows():
-            hash1 = row['hash1']
-            hash2 = row['hash2']
-            hash_rankings[hash1] += 1
-            hash_rankings[hash2] += 1
+        # Create a set of tuples for faster lookup of existing pairs
+        existing_pairs_set = set()
+        if not ranked_pairs_df.empty:
+            for _, row in ranked_pairs_df.iterrows():
+                # Store pairs lexicographically to avoid (h1, h2) vs (h2, h1) issues
+                pair = tuple(sorted((row['hash1'], row['hash2'])))
+                existing_pairs_set.add(pair)
+                hash_rankings[row['hash1']] += 1
+                hash_rankings[row['hash2']] += 1
         
         for h in all_hashes:
             if h not in hash_rankings:
@@ -300,7 +310,7 @@ class QuadLabelerApp:
         for h, _ in sorted_hash_rankings:
             if h not in best_hashes:
                 for h2 in best_hashes:
-                    if (h, h2) in ranked_pairs or (h2, h) in ranked_pairs:
+                    if (h, h2) in ranked_pairs_df or (h2, h) in ranked_pairs_df:
                         break
                 else:
                     best_hashes.append(h)
@@ -312,6 +322,7 @@ class QuadLabelerApp:
             return
         
         self.current_hashes = best_hashes
+        self.relationships = ['<'] * (len(self.current_hashes) -1) # Reset relationships
 
         # Clear any existing video widgets
         self.clear_video_widgets()
@@ -335,8 +346,8 @@ class QuadLabelerApp:
     
     
     def create_video_widgets(self, video_paths):
-        """Create the draggable video widgets."""
-        # Side by side layout for all 4 videos
+        """Create the draggable video widgets and relationship buttons."""
+        # Side by side layout for videos and relationship buttons
         for i, path in enumerate(video_paths):
             # Create the draggable video widget
             video_widget = DraggableVideo(
@@ -350,18 +361,54 @@ class QuadLabelerApp:
                 on_drag_motion=self.on_drag_motion
             )
             video_widget.pack(side=tk.LEFT, padx=5, pady=10)
-            
-            # Store the widget
             self.video_widgets.append(video_widget)
-    
+
+            # Add relationship button if this is not the last video
+            if i < len(video_paths) - 1:
+                btn_frame = tk.Frame(self.videos_frame)
+                btn_frame.pack(side=tk.LEFT, padx=5, pady=10, anchor='center')
+                self.relationship_button_frames.append(btn_frame)
+
+                # Single button that toggles relationship
+                rel_button = tk.Button(btn_frame, text=self.relationships[i], 
+                                     command=lambda idx=i: self.toggle_relationship(idx))
+                rel_button.pack(pady=2)
+                self.relationship_buttons_widgets.append(rel_button)
+        
+        self.update_relationship_buttons_visuals() # Initial visual state
+
     def clear_video_widgets(self):
-        """Clear all video widgets and release resources."""
+        """Clear all video widgets and relationship buttons, and release resources."""
         for widget in self.video_widgets:
             widget.release_resources()
             widget.destroy()
-        
         self.video_widgets = []
+
+        for frame in self.relationship_button_frames:
+            frame.destroy()
+        self.relationship_button_frames = []
+        self.relationship_buttons_widgets = [] # Clear the stored button widgets
     
+    def toggle_relationship(self, index):
+        """Toggle the relationship between video[index] and video[index+1]."""
+        if 0 <= index < len(self.relationships):
+            current_relationship = self.relationships[index]
+            new_relationship = '=' if current_relationship == '<' else '<'
+            self.relationships[index] = new_relationship
+            self.update_relationship_buttons_visuals()
+
+    def set_relationship(self, index, rel_type):
+        """Set the relationship between video[index] and video[index+1]."""
+        if 0 <= index < len(self.relationships):
+            self.relationships[index] = rel_type
+            self.update_relationship_buttons_visuals()
+
+    def update_relationship_buttons_visuals(self):
+        """Update the visual state of relationship buttons (text)."""
+        for i, rel_button in enumerate(self.relationship_buttons_widgets):
+            if 0 <= i < len(self.relationships):
+                 rel_button.config(text=self.relationships[i])
+
     def start_drag(self, source_widget):
         """Handle the start of a drag operation."""
         self.drag_source = source_widget
@@ -415,41 +462,68 @@ class QuadLabelerApp:
             self.swap_videos(source_widget, target_widget)
     
     def swap_videos(self, widget1, widget2):
-        """Swap two video widgets in the display."""
-        # Get their current indices
+        """Swap two video widgets in the display and update relationships."""
+        # Get their current indices in the video_widgets list
         index1 = self.video_widgets.index(widget1)
         index2 = self.video_widgets.index(widget2)
         
         # Swap the widgets in the list
         self.video_widgets[index1], self.video_widgets[index2] = self.video_widgets[index2], self.video_widgets[index1]
         
-        # Swap the hashes
+        # Swap the corresponding hashes
         self.current_hashes[index1], self.current_hashes[index2] = self.current_hashes[index2], self.current_hashes[index1]
         
-        # Update their visual rank indicators
-        widget1.update_rank(index2)
-        widget2.update_rank(index1)
+        # Update their visual rank indicators (DraggableVideo.update_rank handles its own label)
+        widget1.update_rank(index2) # widget1 is now at index2
+        widget2.update_rank(index1) # widget2 is now at index1
         
-        # Rearrange in the display - unpack all then repack in order
-        for widget in self.video_widgets:
-            widget.pack_forget()
+        # Rearrange all video widgets and relationship button frames in the display
+        # First, remove all existing items from videos_frame
+        for child in self.videos_frame.winfo_children():
+            child.pack_forget()
         
-        for widget in self.video_widgets:
-            widget.pack(side=tk.LEFT, padx=5, pady=10)
+        # Repack videos and relationship buttons in the new order
+        for i, video_widget in enumerate(self.video_widgets):
+            video_widget.pack(side=tk.LEFT, padx=5, pady=10)
+            # Repack relationship buttons if they exist for this position
+            if i < len(self.relationship_button_frames):
+                self.relationship_button_frames[i].pack(side=tk.LEFT, padx=5, pady=10, anchor='center')
+        
+
+        self.update_relationship_buttons_visuals()
     
     def submit_ranking(self):
-        """Process the current video ranking and generate pairs."""
-        if len(self.current_hashes) != 4:
-            messagebox.showerror("Error", "Need exactly 4 videos to rank")
+        """Process the current video ranking and relationships to generate pairs."""
+        if len(self.current_hashes) != 4 or len(self.relationships) != 3:
+            messagebox.showerror("Error", "Need exactly 4 videos and 3 relationships defined.")
             return
+
+        ranked_groups = []
+        current_rank_group = 0
         
-        # Generate all pairs and record the winners based on ranking
-        # For each pair (i,j), the winner is the one with lower index
-        for i in range(4):
-            hash_i = self.current_hashes[i]
-            for j in range(i+1, 4):
-                hash_j = self.current_hashes[j]
-                self.pairs_manager.set_winner(hash_i, hash_j, 0)  # 0 means the first hash wins
+        # The first video is always in its own (initial) rank group
+        if self.current_hashes:
+            ranked_groups.append((self.current_hashes[0], current_rank_group))
+        
+        # Determine rank groups based on relationships
+        for i in range(len(self.relationships)):
+            hash_i_plus_1 = self.current_hashes[i+1]
+            relationship = self.relationships[i]
+            
+            if relationship == '<':
+                current_rank_group += 1
+            
+            ranked_groups.append((hash_i_plus_1, current_rank_group))
+
+        for i in range(len(ranked_groups)):
+            hash1, group1 = ranked_groups[i]
+            for j in range(i + 1, len(ranked_groups)):
+                hash2, group2 = ranked_groups[j]
+                
+                if group1 < group2: # hash1 is preferred over hash2
+                    self.pairs_manager.set_winner(hash1, hash2, 0) # hash1 wins
+                elif group1 == group2: # hash1 and hash2 are equal
+                    self.pairs_manager.set_winner(hash1, hash2, 0.5) # Equal
         
         # Load the next set of videos
         self.load_next_videos()

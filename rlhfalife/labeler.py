@@ -92,12 +92,14 @@ class VideoLabelerApp:
         self.button_frame.pack()
 
         self.left_button = tk.Button(self.button_frame, text="Left Wins", command=self.left_wins)
-        self.left_button.pack(side="left")
+        self.left_button.pack(side="left", padx=2)
 
+        self.equal_button = tk.Button(self.button_frame, text="Equal", command=self.declare_equal)
+        self.equal_button.pack(side="left", padx=2)
+        
         self.right_button = tk.Button(self.button_frame, text="Right Wins", command=self.right_wins)
-        self.right_button.pack(side="right")
+        self.right_button.pack(side="left", padx=2)
 
-        # Add generate new pairs button
         self.generate_button = tk.Button(self.button_frame, text="Generate New Pairs", command=self.generate_new_pairs_dialog)
         self.generate_button.pack(side="left", padx=5)
 
@@ -123,12 +125,13 @@ class VideoLabelerApp:
         self.keybindings_frame.pack(side="left", padx=10, pady=10)
 
         # Add a label to display keybindings
-        self.keybindings_label = tk.Label(self.keybindings_frame, text="Keybindings:\nLeft Arrow: Left Wins\nRight Arrow: Right Wins\nSpace: Restart Videos\nBackspace: Previous Pair", justify="left")
+        self.keybindings_label = tk.Label(self.keybindings_frame, text="Keybindings:\nLeft Arrow: Left Wins\nRight Arrow: Right Wins\nDown Arrow: Equal\nSpace: Restart Videos\nBackspace: Previous Pair", justify="left")
         self.keybindings_label.pack()
 
     def bind_keys(self):
         self.master.bind('<Left>', lambda event: self.left_wins())
         self.master.bind('<Right>', lambda event: self.right_wins())
+        self.master.bind('<Down>', lambda event: self.declare_equal())
         self.master.bind('<space>', lambda event: self.restart_videos())
         self.master.bind('<BackSpace>', lambda event: self.previous_pair())
 
@@ -252,6 +255,9 @@ class VideoLabelerApp:
     def right_wins(self):
         self.record_winner('right')
 
+    def declare_equal(self):
+        self.record_winner('equal')
+
     def record_winner(self, winner):
         """Record the winner of the current pair."""
         # Release video resources
@@ -268,8 +274,13 @@ class VideoLabelerApp:
             self.after_id = None
         
         # Record the winner
-        winner = 0 if winner == 'left' else 1
-        self.pairs_manager.set_winner(self.hash1, self.hash2, winner)
+        if winner == 'left':
+            winner_val = 0
+        elif winner == 'right':
+            winner_val = 1
+        else: # equal
+            winner_val = 0.5
+        self.pairs_manager.set_winner(self.hash1, self.hash2, winner_val)
 
         self.load_next_videos()
         self.update_progress_percentage()
