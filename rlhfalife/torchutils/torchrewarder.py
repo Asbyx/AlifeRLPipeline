@@ -133,12 +133,7 @@ class TorchRewarder(nn.Module, Rewarder):
         with torch.no_grad():
             scores = self(data)
             
-        # Convert to numpy and normalize to [0, 1] if more than one sample
-        scores_np = scores.cpu().numpy()
-        if len(scores_np) > 1:
-            scores_np = (scores_np - np.min(scores_np)) / (np.max(scores_np) - np.min(scores_np) + 1e-10)
-        
-        return scores_np.tolist()
+        return scores.cpu().numpy().tolist()
     
     def _get_batches(self, dataset: TrainingDataset, indices, batch_size):
         """
