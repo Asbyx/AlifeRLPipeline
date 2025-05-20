@@ -995,7 +995,7 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
     
     # Check if benchmark exists
     if not os.path.exists(benchmark_file):
-        print(f"Error: Benchmark file not found at {benchmark_file}")
+        print(f"Error: Benchmark file not found.")
         print("Please create a benchmark first using option 2.")
         return
     
