@@ -600,6 +600,12 @@ class CreateBenchmarkApp:
             if widget.winfo_exists():
                 frame_positions[widget.video_path] = widget.get_current_frame_pos()
 
+        # Store relationship button states
+        inline_button_states = [btn.cget("text") for btn in self.relationship_buttons]
+        inter_row_button_state = None
+        if self.inter_row_relationship_button:
+            inter_row_button_state = self.inter_row_relationship_button.cget("text")
+
         # Destroy all existing widgets and buttons first
         for widget in self.video_widgets:
             widget.release_resources() # Release video capture first
@@ -627,9 +633,13 @@ class CreateBenchmarkApp:
             
             # Add an inline relationship button before this video
             if i > 0 and i != mid_point:
+                button_text = "<" # Default
+                if inline_button_idx < len(inline_button_states):
+                    button_text = inline_button_states[inline_button_idx]
+                
                 relationship_button = ttk.Button(
                     current_row_frame, 
-                    text="<", # Default state after repack
+                    text=button_text, # Restore state
                     width=3,
                     command=lambda idx=inline_button_idx: self.toggle_relationship(idx)
                 )
@@ -657,9 +667,12 @@ class CreateBenchmarkApp:
 
         # Recreate and repack the inter-row button if needed
         if num_videos > 1 and mid_point < num_videos: # Ensure there's a split
+             button_text = "<" # Default
+             if inter_row_button_state:
+                 button_text = inter_row_button_state
              self.inter_row_relationship_button = ttk.Button(
                   self.inter_row_frame,
-                  text="<", # Default state after repack
+                  text=button_text, # Restore state
                   width=3,
                   command=lambda: self.toggle_relationship('inter_row')
              )
