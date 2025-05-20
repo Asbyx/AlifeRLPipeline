@@ -48,26 +48,10 @@ class TorchRewarder(nn.Module, Rewarder):
         self.model_path = model_path
         self.wandb_params = wandb_params
         self.simulator = simulator
-        
-        def cross_entropy_loss(scores1, scores2, y):
-            p = torch.exp(scores2) / (torch.exp(scores1) + torch.exp(scores2)) # as y = 0 means "left win", p = P("right wins")
-            return -torch.sum(y * torch.log(p + 1e-10) + (1 - y) * torch.log(1 - p + 1e-10))
-            # TODO :Should use mean, but should adapt rest of code otherwise logging is false
-            # return -torch.mean(y * torch.log(p + 1e-10) + (1 - y) * torch.log(1 - p + 1e-10)) 
-        
-        def torch_xent(scores1, scores2, y):
-            """
-                I added this just in case, in principle its more stable than the re-implementation above.
-            """
-            rewards = torch.stack([scores1, scores2],dim=1) # (B,2) 
-
-            loss = F.cross_entropy(rewards, y.long(), reduction='mean')# (B,)
-
-            return loss
 
         self.loss = {
             "margin": lambda scores1, scores2, y: F.margin_ranking_loss(scores1, scores2, y*2-1, margin=0.1), # convert to {-1, 1}
-            "cross_entropy": cross_entropy_loss
+            "cross_entropy": lambda scores1, scores2, y: F.cross_entropy(torch.stack([scores1, scores2],dim=1), y.long(), reduction='mean')
         }[self.config.get('loss', 'cross_entropy')]
 
         if self.config.get('test_set_path', None) is not None:
@@ -218,9 +202,7 @@ class TorchRewarder(nn.Module, Rewarder):
                 
                 batch_count += 1
         
-        avg_loss = total_loss / batch_count / batch_size if batch_count > 0 else 0
-        # TODO : Replace by below (I think) for correct average when using mean loss
-        # avg_loss = total_loss / batch_count if batch_count > 0 else 0
+        avg_loss = total_loss / batch_count if batch_count > 0 else 0
         accuracy = correct / total if total > 0 else 0
         
         return avg_loss, accuracy
@@ -305,10 +287,7 @@ class TorchRewarder(nn.Module, Rewarder):
             total += batch_total
             batch_count += 1
         
-        avg_loss = total_loss / batch_count / batch_size if batch_count > 0 else 0
-        
-        # TODO : Replace by below (I think) for correct average when using mean loss
-        # avg_loss = total_loss / batch_count if batch_count > 0 else 0
+        avg_loss = total_loss / batch_count if batch_count > 0 else 0
         accuracy = correct / total if total > 0 else 0
         
         return avg_loss, accuracy
