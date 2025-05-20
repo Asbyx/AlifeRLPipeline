@@ -1,1 +1,2 @@
-from .lenia import Loader
+from .loader import Loader
+from .lenia import Lenia

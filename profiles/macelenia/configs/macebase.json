@@ -1,0 +1,21 @@
+{
+    "name":"macebase",
+    "epochs":30,
+    "val_split":0.1,
+    "loss":"cross_entropy",
+    "clipvip_size":32,
+    "minihead":true,
+    "early_stopping_patience":10,
+    "generator": {
+        "gen_mode": {"default_gen":false, "k_arbi":true, "g_arbi":false}
+    },
+    "simulator": {
+        "size": [1,200,200],
+        "num_channels": 3,
+        "run_length": 1000,
+        "frame_portion": 5,
+        "num_output_frames": 12
+    },
+    "device":"cuda",
+    "test_set_path":"out/best_lenia/benchmark"
+}
