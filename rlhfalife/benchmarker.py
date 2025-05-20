@@ -337,6 +337,10 @@ class CreateBenchmarkApp:
         self.master.attributes('-topmost', True)
         self.master.attributes('-topmost', False)
         
+        self.master.bind('<space>', lambda event: self.restart_video())
+        self.master.bind('<Left>', lambda event: self.show_previous())
+        self.master.bind('<Right>', lambda event: self.show_next())
+        
         # Flag to prevent concurrent generation
         self._is_generating = False
         
