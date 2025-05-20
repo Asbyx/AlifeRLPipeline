@@ -289,7 +289,7 @@ class PairsManager:
             ordered_rows.append(chosen_pair_series[pairs.columns]) 
             
             # Update the hash counts for the hashes in the chosen pair
-            hash_counts[chosen_pair_series['hash1']] += 1
+            hash_counts[chosen_pair_series['hash1']] += 1 
             hash_counts[chosen_pair_series['hash2']] += 1
             remaining_pairs = remaining_pairs.drop(chosen_pair_series.name)
         
