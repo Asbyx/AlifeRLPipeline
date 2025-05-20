@@ -25,6 +25,7 @@ class LiveBenchmarkApp:
         self.frame_size = frame_size
         self.on_close_handler = on_close
         self.thread = None
+        self._is_closing = False # Flag to signal closing process
         
         self.scores = []
         self.videos = []
@@ -83,8 +84,15 @@ class LiveBenchmarkApp:
 
     def benchmark_process(self):
         """Run the benchmark process: generate parameters, run simulations, and score them."""
+        if self._is_closing: return
         self.update_status("Generating parameters...")
-        self.params = self.generator.generate(10)
+        try:
+            self.params = self.generator.generate(10)
+        except Exception as e:
+            print(f"Error during parameter generation: {e}")
+            self.update_status("Error during generation.") # update_status will check _is_closing
+            return
+        if self._is_closing: return
 
         # Check if two params are the same
         if any(str(self.params[i]) == str(self.params[j]) for i in range(len(self.params)) for j in range(i+1, len(self.params))):
@@ -94,25 +102,53 @@ class LiveBenchmarkApp:
             self.params = [self.params[i] for i in range(len(self.params)) if not any(str(self.params[i]) == str(self.params[j]) for j in range(i+1, len(self.params)))]
             print(f"Unique parameters: {len(self.params)}, over 10 generated.")
             print("="*50 + "\n")
+        if self._is_closing: return
 
         self.update_status("Running simulations...")
-        outputs = self.simulator.run(self.params)
+        try:
+            outputs = self.simulator.run(self.params)
+        except Exception as e:
+            print(f"Error during simulation run: {e}")
+            self.update_status("Error during simulation.")
+            return
+        if self._is_closing: return
         
         self.update_status("Scoring simulations...")
-        self.scores = self.rewarder.rank(outputs)
+        try:
+            self.scores = self.rewarder.rank(outputs)
+        except Exception as e:
+            print(f"Error during rewarder ranking: {e}")
+            self.update_status("Error during scoring.")
+            return
+        if self._is_closing: return
 
         self.update_status("Saving videos...")
-        self.videos = self.simulator.save_videos(self.generator.hash_params(self.params), outputs, self.out_paths['videos'])
+        try:
+            self.videos = self.simulator.save_videos(self.generator.hash_params(self.params), outputs, self.out_paths['videos'])
+        except Exception as e:
+            print(f"Error during video saving: {e}")
+            self.update_status("Error saving videos.")
+            return
+        if self._is_closing: return
 
         # Sort videos by score
+        if not self.videos:
+            self.update_status("No videos to display.")
+            return
+        if self._is_closing: return
+
         sorted_videos = sorted(zip(self.scores, self.videos, self.params), key=lambda x: x[0], reverse=True)
         self.scores, self.videos, self.params = zip(*sorted_videos)
+        if self._is_closing: return
 
         self.update_status("Videos (best to worst):")
+        if self._is_closing or not self.master.winfo_exists(): return
         self.master.after(0, lambda: self.show_video(0))
 
     def update_status(self, message):
         """Update the status label."""
+        if not self.master.winfo_exists() or self._is_closing:
+            return
         self.master.after(0, lambda: self.status_label.config(text=message))
 
     def show_video(self, index):
@@ -187,10 +223,15 @@ class LiveBenchmarkApp:
 
     def on_close(self):
         """Handle window close event."""
+        self._is_closing = True # Signal that the window is closing
+
         # Release video resources
-        if self.thread:
-            self.thread.join(1)
-            self.thread = None
+        if self.thread and self.thread.is_alive():
+            try:
+                self.thread.join(1) # Wait a bit for the thread to finish
+            except RuntimeError: # Can happen if thread is already in a bad state
+                pass
+        self.thread = None
 
         if hasattr(self, 'cap') and self.cap:
             self.cap.release()
@@ -231,6 +272,7 @@ class CreateBenchmarkApp:
         self.frame_size = frame_size
         self.on_close_handler = on_close
         self.thread = None
+        self._is_closing = False # Flag to signal closing process
         
         self.videos = []
         self.params = []
@@ -347,15 +389,25 @@ class CreateBenchmarkApp:
 
     def _update_status_safe(self, message):
         """Safely update the status label from any thread."""
-        if self.master.winfo_exists(): # Check if window still exists
+        if self.master.winfo_exists() and not self._is_closing: # Check if window still exists and not closing
             self.master.after(0, lambda: self.status_label.config(text=message))
 
     def _generation_worker(self):
         """Worker function to generate parameters, run simulations, and save videos."""
         try:
+            if self._is_closing: return
             # Generate parameters
             self._update_status_safe("Generating parameters...")
-            params = self.generator.generate(10)
+            try:
+                params = self.generator.generate(10)
+            except Exception as e:
+                error_message = f"Error during parameter generation: {e}"
+                print(error_message)
+                traceback.print_exc()
+                self._update_status_safe(error_message)
+                if self.master.winfo_exists() and not self._is_closing: self.master.after(0, self._reset_ui_after_generation)
+                return
+            if self._is_closing: return
 
             # Check for duplicates
             unique_params = []
@@ -376,25 +428,53 @@ class CreateBenchmarkApp:
 
             if not unique_params:
                 self._update_status_safe("Error: No unique parameters generated.")
-                if self.master.winfo_exists():
+                if self.master.winfo_exists() and not self._is_closing:
                     self.master.after(0, self._finish_generation, [], [], [], []) # Finish with empty results
                 return
 
             params = unique_params
+            if self._is_closing: return
 
             # Run simulations
             self._update_status_safe("Running simulations...")
-            outputs = self.simulator.run(params)
+            try:
+                outputs = self.simulator.run(params)
+            except Exception as e:
+                error_message = f"Error during simulation run: {e}"
+                print(error_message)
+                traceback.print_exc()
+                self._update_status_safe(error_message)
+                if self.master.winfo_exists() and not self._is_closing: self.master.after(0, self._reset_ui_after_generation)
+                return
+            if self._is_closing: return
 
             # Get hashes
             hashs = self.generator.hash_params(params)
+            if self._is_closing: return
 
             # Save videos
             self._update_status_safe("Saving videos...")
-            videos = self.simulator.save_videos(hashs, outputs, self.out_paths['videos'])
+            try:
+                videos = self.simulator.save_videos(hashs, outputs, self.out_paths['videos'])
+            except Exception as e:
+                error_message = f"Error during video saving: {e}"
+                print(error_message)
+                traceback.print_exc()
+                self._update_status_safe(error_message)
+                if self.master.winfo_exists() and not self._is_closing: self.master.after(0, self._reset_ui_after_generation)
+                return
+            if self._is_closing: 
+                # Clean up videos if we generated some then closed
+                if videos:
+                    print("Window closed during video saving, cleaning up temporary videos.")
+                    for video_path in videos:
+                        try:
+                            if os.path.exists(video_path): os.remove(video_path)
+                        except Exception as e_del: print(f"Error deleting temp video {video_path}: {e_del}")
+                return
 
             # Schedule the final UI update on the main thread
-            if self.master.winfo_exists():
+            if self.master.winfo_exists() and not self._is_closing:
                 self.master.after(0, self._finish_generation, videos, params, hashs, outputs)
 
         except Exception as e:
@@ -403,13 +483,22 @@ class CreateBenchmarkApp:
             traceback.print_exc()
             self._update_status_safe(error_message)
             # Ensure UI is reset even on error
-            if self.master.winfo_exists():
+            if self.master.winfo_exists() and not self._is_closing:
                 self.master.after(0, self._reset_ui_after_generation)
 
 
     def _finish_generation(self, videos, params, hashs, outputs):
         """Update the UI after video generation is complete. Runs in the main thread."""
-        if not self.master.winfo_exists(): # Check if window was closed
+        if not self.master.winfo_exists() or self._is_closing: # Check if window was closed or is closing
+            # If closing, clean up any videos that might have been generated by this worker run
+            # The main on_close will handle self.videos, but these are local to this generation run
+            if videos:
+                print("Finishing generation but window is closing/closed. Cleaning up videos from this run.")
+                for video_path in videos:
+                    try:
+                        if os.path.exists(video_path): os.remove(video_path)
+                    except Exception as e:
+                        print(f"Error deleting temporary video {video_path} during _finish_generation on close: {e}")
             return
 
         self.videos = videos
@@ -445,7 +534,7 @@ class CreateBenchmarkApp:
 
     def _reset_ui_after_generation(self):
          """Reset UI elements after generation attempt (success or failure)."""
-         if not self.master.winfo_exists():
+         if not self.master.winfo_exists() or self._is_closing:
               return
          # Re-enable buttons
          self.generate_button.config(state=tk.NORMAL)
@@ -833,14 +922,19 @@ class CreateBenchmarkApp:
     
     def on_close(self):
         """Handle window close event."""
+        self._is_closing = True # Signal that the window is closing
+
         # Release video resources
         self.clear_video_widgets()
         
-        if self.thread:
-            self.thread.join()
-            self.thread = None
+        if self.thread and self.thread.is_alive():
+            try:
+                self.thread.join(1) # Wait a bit for the thread to finish
+            except RuntimeError:
+                pass # Thread might be in a bad state or already joined/exited
+        self.thread = None
         
-        # Delete temporary videos
+        # Delete temporary videos (self.videos list)
         for video_path in self.videos:
             try:
                 os.remove(video_path)
