@@ -24,4 +24,4 @@ class Loader:
                 - 'saved_simulations': path to the saved simulations folder,
             config: Dictionary containing the config of the experiment
         """
-        raise NotImplementedError("Must be implemented in inheriting class.") 
+        raise NotImplementedError("Loader.load must be implemented in inheriting class") 

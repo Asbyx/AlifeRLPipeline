@@ -20,7 +20,7 @@ class Rewarder:
         Returns:
             An array-like of the same length as data, where the i-th element is the reward for the i-th sample.
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Rewarder.rank must be implemented in inheriting class")
 
     def train(self, dataset: "TrainingDataset") -> None:
         """
@@ -29,13 +29,13 @@ class Rewarder:
         Args:
             dataset: TrainingDataset instance containing the dataset.
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Rewarder.train must be implemented in inheriting class")
 
     def save(self) -> None:
         """
         Save the rewarder.
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Rewarder.save must be implemented in inheriting class")
 
     def load(self) -> "Rewarder":
         """
@@ -44,4 +44,4 @@ class Rewarder:
         Returns:
             The loaded rewarder
         """
-        raise NotImplementedError("Must be implemented in inheriting class.") 
+        raise NotImplementedError("Rewarder.load must be implemented in inheriting class") 

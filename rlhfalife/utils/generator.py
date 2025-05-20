@@ -23,7 +23,7 @@ class Generator:
         Returns:
             A list of parameters, of length nb_params. The parameters themselfs can be anything that can be converted to a string (override the __str__ method if needed).
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Generator.generate must be implemented in inheriting class")
 
     def train(self, simulator: "Simulator", rewarder: "Rewarder") -> None:
         """
@@ -33,13 +33,13 @@ class Generator:
             simulator: Simulator for which the generator is trained
             rewarder: Rewarder to train with
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Generator.train must be implemented in inheriting class")
     
     def save(self) -> None:
         """
         Save the generator to the path
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Generator.save must be implemented in inheriting class")
 
     def load(self) -> "Generator":
         """
@@ -48,7 +48,7 @@ class Generator:
         Returns:
             The loaded generator
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Generator.load must be implemented in inheriting class")
 
     #-------- Built in --------#
     def hash_params(self, params: List[Any]) -> List[int]:

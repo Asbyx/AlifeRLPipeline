@@ -37,7 +37,7 @@ class Simulator:
         Returns:
             The outputs of the simulation
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Simulator.run must be implemented in inheriting class")
 
     def save_output(self, output: Any, path: str) -> str:
         """
@@ -56,7 +56,7 @@ class Simulator:
 
         Note: we do not ask for a load_output method, as the the loading of the outputs cannot be automated, since those outputs can be very big data. Therefore we let the user implement the loading in the Rewarder, from the paths given by the TrainingDataset.
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Simulator.save_output must be implemented in inheriting class")
 
     def save_video_from_output(self, output: Any, path: str) -> None:
         """
@@ -71,7 +71,7 @@ class Simulator:
         Example usage:
             save_video_from_output(output, "out/profile/videos/video_number1.mp4")
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Simulator.save_video_from_output must be implemented in inheriting class")
 
     def save_param(self, param: Any, path: str) -> str:
         """
@@ -85,7 +85,7 @@ class Simulator:
             save_param(param, "out/profile/params/param_number1")
             It is expected that the param will be saved in "out/profile/params/param_number1<extension chosen by the user>"
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Simulator.save_param must be implemented in inheriting class")
 
     def load_output(self, path: str) -> Any:
         """
@@ -97,7 +97,7 @@ class Simulator:
         Returns:
             The loaded output
         """
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Simulator.load_output must be implemented in inheriting class")
     
     def load_param(self, path: str) -> Any:
         """
@@ -109,7 +109,7 @@ class Simulator:
         Returns:
             The loaded parameter
         """    
-        raise NotImplementedError("Must be implemented in inheriting class.")
+        raise NotImplementedError("Simulator.load_param must be implemented in inheriting class")
 
     #-------- Built in --------#
     def generate_pairs(self, nb_params: int, dataset_manager: "DatasetManager", pairs_manager: "PairsManager", 
