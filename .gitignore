@@ -1,8 +1,9 @@
+/*
+
 # Authorize only rlhfalife folder and subfolders and profiles/lenia folder
 !rlhfalife/
 !rlhfalife/*
 !profiles/lenia/
-!profiles/best_lenia/
 
 mes_notes.md
 
