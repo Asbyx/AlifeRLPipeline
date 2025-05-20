@@ -275,29 +275,31 @@ class PairsManager:
         # Continue until all pairs are used
         remaining_pairs = pairs.copy()
         
+        ordered_rows = []
         while not remaining_pairs.empty:
-            # Calculate the current score for each pair based on hash counts
-            def pair_score(row):
-                return hash_counts[row['hash1']] + hash_counts[row['hash2']]
+            scores_h1 = remaining_pairs['hash1'].map(hash_counts)
+            scores_h2 = remaining_pairs['hash2'].map(hash_counts)
+            remaining_pairs['_score'] = scores_h1 + scores_h2
+
+            min_score_val = remaining_pairs['_score'].min()
             
-            # Find the pair with the lowest score (least seen hashes)
-            remaining_pairs['score'] = remaining_pairs.apply(pair_score, axis=1)
-            min_score = remaining_pairs['score'].min()
-            min_score_pairs = remaining_pairs[remaining_pairs['score'] == min_score]
+            # Filter to pairs that have the minimum score
+            min_score_pairs_df = remaining_pairs[remaining_pairs['_score'] == min_score_val]
+            chosen_pair_series = min_score_pairs_df.sample(n=1).iloc[0]
+            ordered_rows.append(chosen_pair_series[pairs.columns]) 
             
-            # If multiple pairs have the same score, choose one randomly
-            chosen_idx = min_score_pairs.sample(n=1).index[0]
-            chosen_pair = remaining_pairs.loc[chosen_idx]
-            
-            # Add the chosen pair to the result
-            ordered_pairs = pd.concat([ordered_pairs, pd.DataFrame([chosen_pair[pairs.columns]])], ignore_index=True)
-            
-            # Update the hash counts
-            hash_counts[chosen_pair['hash1']] += 1
-            hash_counts[chosen_pair['hash2']] += 1
-            
-            # Remove the chosen pair from remaining pairs
-            remaining_pairs = remaining_pairs.drop(chosen_idx)
+            # Update the hash counts for the hashes in the chosen pair
+            hash_counts[chosen_pair_series['hash1']] += 1
+            hash_counts[chosen_pair_series['hash2']] += 1
+            remaining_pairs = remaining_pairs.drop(chosen_pair_series.name)
+        
+        # After the loop, create the ordered_pairs DataFrame from the list of rows
+        if ordered_rows:
+            # Construct DataFrame from list of Series; ensure correct columns and order
+            ordered_pairs = pd.DataFrame(ordered_rows, columns=pairs.columns).reset_index(drop=True)
+        else:
+            # If no unranked pairs, create an empty DataFrame with the correct columns
+            ordered_pairs = pd.DataFrame(columns=pairs.columns)
         
         self.pairs_df = pd.concat([pd.DataFrame(ordered_pairs), self.pairs_df[self.pairs_df['winner'].notna()]], ignore_index=True).reset_index(drop=True)
         self.save()
