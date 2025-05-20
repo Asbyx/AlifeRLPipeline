@@ -76,6 +76,9 @@ class LiveBenchmarkApp:
 
         self.restart_button = tk.Button(self.button_frame, text="Restart", command=self.restart_video)
         self.restart_button.pack(side="left", padx=5)
+
+        self.reroll_button = tk.Button(self.button_frame, text="Reroll Benchmark", command=self.reroll_benchmark)
+        self.reroll_button.pack(side="left", padx=5)
         
     def run_benchmark(self):
         """Start the benchmarking process in a separate thread."""
@@ -220,6 +223,45 @@ class LiveBenchmarkApp:
         """Restart the current video from the beginning."""
         if self.cap and self.cap.isOpened():
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    def reroll_benchmark(self):
+        """Clean up current benchmark and generate a new one."""
+        if self.thread and self.thread.is_alive():
+            messagebox.showinfo("Info", "A benchmark generation is already in progress. Please wait.")
+            return
+
+        # Stop current video playback and release capture
+        if self.after_id is not None:
+            self.master.after_cancel(self.after_id)
+            self.after_id = None
+        if self.cap and self.cap.isOpened():
+            self.cap.release()
+            self.cap = None
+        
+        # Clear video display
+        self.video_label.config(image=None)
+        self.video_label.image = None
+        self.score_label.config(text="Score: ")
+
+        # Delete old video files
+        if hasattr(self, 'videos') and self.videos:
+            for video_path in self.videos:
+                try:
+                    if os.path.exists(video_path): # Check if file exists before attempting to delete
+                        os.remove(video_path)
+                except Exception as e:
+                    print(f"Error deleting old video {video_path}: {e}")
+            print("Deleted old benchmark videos.")
+
+        # Reset benchmark data
+        self.scores = []
+        self.videos = []
+        self.params = []
+        self.current_index = 0
+        
+        # Update status and run new benchmark
+        self.update_status("Rerolling benchmark...")
+        self.run_benchmark()
 
     def on_close(self):
         """Handle window close event."""
