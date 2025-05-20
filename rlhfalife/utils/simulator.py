@@ -1,120 +1,10 @@
 import os
-import itertools    
-from typing import TYPE_CHECKING, List, Any, Callable
+import itertools
+from typing import List, Any, Callable, TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from rlhfalife.utils import Simulator, Rewarder
-    from rlhfalife.data_managers import DatasetManager, PairsManager, TrainingDataset
-
-class Generator:
-    """
-    Abstract Generator class for generating parameters for an alife simulation
-    Parameters are anything that can be used to configure the simulation.
-
-    For example, for a cellular automaton, the parameters could be the initial state of the grid, or the neighborhood function.
-    """
-
-    #-------- To implement --------#
-    def generate(self, nb_params: int) -> List[Any]:
-        """
-        Generate some parameters for the simulation.
-        
-        Args:
-            nb_params: Number of different parameters to generate
-
-        Returns:
-            A list of parameters, of length nb_params. The parameters themselfs can be anything that can be converted to a string (override the __str__ method if needed).
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    def train(self, simulator: "Simulator", rewarder: "Rewarder") -> None:
-        """
-        Train the generator using the rewarder
-
-        Args:
-            simulator: Simulator for which the generator is trained
-            rewarder: Rewarder to train with
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-    
-    def save(self) -> None:
-        """
-        Save the generator to the path
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    def load(self) -> "Generator":
-        """
-        Load the generator from the path
-
-        Returns:
-            The loaded generator
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    #-------- Built in --------#
-    def hash_params(self, params: List[Any]) -> List[int]:
-        """
-        Hash a list of parameters.
-        
-        Note: the parameters are expected to be hashable. If not, this function is expected to be overriden in the inheriting class.
-
-        Args:
-            params: List of parameters to hash
-
-        Returns:
-            A list of hashes of the parameters
-        """
-        try:
-            return [hash(param) for param in params]
-        except:
-            raise Exception("Parameters have an unhashable type. Please override the hash_params method in the Generator class.")
-
-
-
-class Rewarder:
-    """
-    Abstract Rewarder class for estimating the reward
-    It is expected to be trained on a dataset of pairs of simulations, with the winner of each pair, and be used to train a Generator.
-    """
-
-    #-------- To implement --------#
-    def rank(self, data: List[Any]) -> List[float]:
-        """
-        Rank the data. 
-        
-        Args:
-            data: Data to rank, array-like of outputs of a Simulator.
-
-        Returns:
-            An array-like of the same length as data, where the i-th element is the reward for the i-th sample.
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    def train(self, dataset: "TrainingDataset") -> None:
-        """
-        Train the rewarder on the pairs in pairs_manager
-
-        Args:
-            dataset: TrainingDataset instance containing the dataset.
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    def save(self) -> None:
-        """
-        Save the rewarder.
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-    def load(self) -> "Rewarder":
-        """
-        Load the rewarder.
-
-        Returns:
-            The loaded rewarder
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-    
-
+    from .generator import Generator
+    from ..data_managers import DatasetManager, PairsManager
 
 class Simulator:
     """
@@ -126,7 +16,7 @@ class Simulator:
     For example, for a cellular automaton, the parameters could be the initial state of the grid, or the neighborhood function.
     """
 
-    def __init__(self, generator: Generator):
+    def __init__(self, generator: "Generator"):
         """
         Initialize the simulator with a generator.
 
@@ -351,32 +241,4 @@ class Simulator:
         for i, param in enumerate(params):
             param_path = os.path.join(path, f"{hashs[i]}")
             res.append(self.save_param(param, param_path))
-        return res
-
-class Loader:
-    """
-    Abstract Loader class to load a Generator, a Rewarder and a Simulator
-    It is expected to be also named Loader.
-    """
-    def load(self, out_paths: dict, config: dict) -> tuple[Generator, Rewarder, Simulator]:
-        """
-        Load the generator, rewarder and simulator
-
-        Args:
-            out_paths: Dictionary containing: 
-                - 'outputs': path to the outputs folder,
-                - 'videos': path to the videos folder,
-                - 'params': path to the params folder,
-                - 'rewarder': path to the rewarders folder,
-                - 'generator': path to the generators folder,
-                - 'saved_simulations': path to the saved simulations folder,
-            config: Dictionary containing the config of the experiment
-        """
-        raise NotImplementedError("Must be implemented in inheriting class.")
-
-
-    
-        
-        
-        
-        
+        return res 
