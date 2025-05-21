@@ -3,6 +3,7 @@ import json
 import argparse
 import importlib
 import sys
+import shutil
 from rlhfalife.labeler import launch_video_labeler
 from rlhfalife.quad_labeler import launch_quad_labeler
 from rlhfalife.benchmarker import launch_benchmarker
@@ -153,8 +154,9 @@ def print_menu():
     print("9. Export profile")
     print("A. Analyze training dataset")
     print("B. Reset labels (keep simulations and pairs)")
+    print("C. Reset config (erase everything)")
     print("0. Exit")
-    return input("Please choose an option (0-9, A-B): ")
+    return input("Please choose an option (0-9, A-C): ")
 
 def main():
     # Parse command line arguments
@@ -254,6 +256,19 @@ def main():
                 if confirmation.lower() == 'y':
                     pairs_manager.reset_rankings()
                     print(f"All rankings have been reset. Number of unranked pairs: {pairs_manager.get_nb_unranked_pairs()}")
+                else:
+                    print("Reset operation cancelled.")
+            case "C" | "c":
+                print("Resetting Config")
+                confirmation = input(f"Are you sure you want to reset the config '{config}' for profile '{profile}'? This will delete all associated data. (y/n): ")
+                if confirmation.lower() == 'y':
+                    try:
+                        shutil.rmtree(out_path)
+                        print(f"Config '{config}' for profile '{profile}' has been reset.")
+                        print("Please restart the application.")
+                        exit(0)
+                    except Exception as e:
+                        print(f"Error resetting config: {str(e)}")
                 else:
                     print("Reset operation cancelled.")
             case "0":
