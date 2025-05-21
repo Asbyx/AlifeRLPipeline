@@ -1,6 +1,6 @@
-import os
 import pandas as pd
 from typing import List, Any, Optional, Tuple, Iterator
+from pathlib import Path
 
 
 class DatasetManager:
@@ -32,7 +32,7 @@ class DatasetManager:
         
     def _load_or_create_dataset(self) -> pd.DataFrame:
         """Load the dataset from CSV or create a new one if it doesn't exist."""
-        if os.path.exists(self.dataset_path):
+        if Path(self.dataset_path).exists():
             return pd.read_csv(self.dataset_path, dtype=str)
         else:
             # Create a new dataset with the required columns
@@ -54,17 +54,17 @@ class DatasetManager:
         all_video_files = []
         
         for _, row in self.data_df.iterrows():
-            if os.path.exists(row['param_path']):
+            if Path(row['param_path']).exists():
                 all_param_files.append(row['param_path'])
-            if os.path.exists(row['output_path']):
+            if Path(row['output_path']).exists():
                 all_output_files.append(row['output_path'])
-            if os.path.exists(row['video_path']):
+            if Path(row['video_path']).exists():
                 all_video_files.append(row['video_path'])
                 
         # Delete all files
         for file_path in all_param_files + all_output_files + all_video_files:
             try:
-                os.remove(file_path)
+                Path(file_path).unlink()
             except (OSError, FileNotFoundError):
                 pass  # Ignore errors if file doesn't exist or can't be deleted
                 
@@ -231,10 +231,10 @@ class PairsManager:
         self.pairs_path = pairs_path
         self._load_or_create_pairs()
         
-    def _load_or_create_pairs(self) -> pd.DataFrame:
+    def _load_or_create_pairs(self) -> None:
         """Load the pairs from CSV or create a new one if it doesn't exist."""
-        if os.path.exists(self.pairs_path):
-            self.pairs_df = pd.read_csv(self.pairs_path, dtype=str)
+        if Path(self.pairs_path).exists():
+            self.pairs_df = pd.read_csv(self.pairs_path, dtype={'hash1': str, 'hash2': str, 'winner': float})
         else:
             # Create a new pairs file with the required columns
             self.pairs_df = pd.DataFrame(columns=['hash1', 'hash2', 'winner'])

@@ -1,9 +1,8 @@
-import os
-import pandas as pd
 from rlhfalife.data_managers import TrainingDataset, DatasetManager, PairsManager
 from collections import Counter
 import argparse
 import importlib
+from pathlib import Path
 
 def analyze_training_dataset(profile, config, simulator=None):
     """
@@ -18,19 +17,19 @@ def analyze_training_dataset(profile, config, simulator=None):
         dict: Dictionary containing analysis results
     """
     # Setup paths
-    out_path = os.path.join("out", profile, config)
+    out_path = Path("out") / profile / config
     out_paths = {
-        'outputs': os.path.join(out_path, "outputs"),
-        'videos': os.path.join(out_path, "videos"),
-        'params': os.path.join(out_path, "params"),
-        'rewarder': os.path.join(out_path, "rewarder"),
-        'generator': os.path.join(out_path, "generator"),
-        'saved_simulations': os.path.join(out_path, "saved_simulations"),
-        'benchmark': os.path.join("out", profile, "benchmark"),
+        'outputs': out_path / "outputs",
+        'videos': out_path / "videos",
+        'params': out_path / "params",
+        'rewarder': out_path / "rewarder",
+        'generator': out_path / "generator",
+        'saved_simulations': out_path / "saved_simulations",
+        'benchmark': Path("out") / profile / "benchmark",
     }
     
-    dataset_path = os.path.join(out_path, "dataset.csv")
-    pairs_path = os.path.join(out_path, "pairs.csv")
+    dataset_path = out_path / "dataset.csv"
+    pairs_path = out_path / "pairs.csv"
     
     # Create the data managers
     dataset_manager = DatasetManager(dataset_path, out_paths, simulator)
@@ -215,21 +214,22 @@ def main():
         loader = profile_module.Loader()
         
         # Load simulator and other components
-        out_path = os.path.join("out", args.profile, args.config)
+        out_path = Path("out") / args.profile / args.config
         out_paths = {
-            'outputs': os.path.join(out_path, "outputs"),
-            'videos': os.path.join(out_path, "videos"),
-            'params': os.path.join(out_path, "params"),
-            'rewarder': os.path.join(out_path, "rewarder"),
-            'generator': os.path.join(out_path, "generator"),
-            'saved_simulations': os.path.join(out_path, "saved_simulations"),
-            'benchmark': os.path.join("out", args.profile, "benchmark"),
+            'outputs': out_path / "outputs",
+            'videos': out_path / "videos",
+            'params': out_path / "params",
+            'rewarder': out_path / "rewarder",
+            'generator': out_path / "generator",
+            'saved_simulations': out_path / "saved_simulations",
+            'benchmark': Path("out") / args.profile / "benchmark",
         }
         
         # Load config
         import json
-        config_file_path = os.path.join("profiles", args.profile, "configs", f"{args.config}.json")
-        config_dict = json.load(open(config_file_path))
+        config_file_path = Path("profiles") / args.profile / "configs" / f"{args.config}.json"
+        with open(config_file_path) as f:
+            config_dict = json.load(f)
         
         _, _, simulator = loader.load(out_paths, config_dict)
         

@@ -1,17 +1,18 @@
-import os
 import zipfile
 import shutil
 import tempfile
-import time
+from pathlib import Path
 
 def get_available_profiles():
     """Get list of available profiles."""
-    return [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d)) and d != "__pycache__"]
+    profiles_path = Path("profiles")
+    return [d.name for d in profiles_path.iterdir() if d.is_dir() and d.name != "__pycache__"]
 
 def get_available_configs(profile):
     """Get list of available configs for a profile."""
-    return [c.split('.')[0] for c in os.listdir(os.path.join("profiles", profile, "configs")) 
-            if c != "__pycache__" and c.endswith('.json')]
+    configs_path = Path("profiles") / profile / "configs"
+    return [c.stem for c in configs_path.iterdir() 
+            if c.name != "__pycache__" and c.suffix == '.json']
 
 def select_profile(profile=None):
     """Select a profile, either from argument or via prompt."""
@@ -91,7 +92,8 @@ def export_profile(profile, configs=None, output_path=None):
     Returns:
         str: Path to the created zip file or None if export failed
     """
-    if not os.path.exists(os.path.join("profiles", profile)):
+    profile_path = Path("profiles") / profile
+    if not profile_path.exists():
         print(f"Error: Profile '{profile}' not found.")
         return None
     
@@ -104,62 +106,59 @@ def export_profile(profile, configs=None, output_path=None):
     
     # Create temp directory for organizing files
     with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
         # Create directory structure
-        os.makedirs(os.path.join(temp_dir, f"profiles/{profile}"), exist_ok=True)
+        profile_export_path = temp_dir_path / "profiles" / profile
+        profile_export_path.mkdir(parents=True, exist_ok=True)
         
         # Copy profile code
-        profile_dir = os.path.join("profiles", profile)
-        for item in os.listdir(profile_dir):
-            src = os.path.join(profile_dir, item)
-            dst = os.path.join(temp_dir, f"profiles/{profile}/{item}")
-            
+        for item in profile_path.iterdir():
             # Skip __pycache__ directories
-            if os.path.basename(src) == "__pycache__":
+            if item.name == "__pycache__":
                 continue
                 
-            if os.path.isdir(src):
+            if item.is_dir():
                 # Copy the directory excluding __pycache__
-                shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__"))
+                dst = profile_export_path / item.name
+                shutil.copytree(item, dst, ignore=shutil.ignore_patterns("__pycache__"))
             else:
-                shutil.copy2(src, dst)
+                shutil.copy2(item, profile_export_path / item.name)
         
         # Copy output folders for selected configs
         for config in configs:
-            out_dir = os.path.join("out", profile, config)
-            if os.path.exists(out_dir):
-                dst_dir = os.path.join(temp_dir, f"out/{profile}/{config}")
-                os.makedirs(dst_dir, exist_ok=True)
+            out_dir = Path("out") / profile / config
+            if out_dir.exists():
+                dst_dir = temp_dir_path / "out" / profile / config
+                dst_dir.mkdir(parents=True, exist_ok=True)
                 
                 # Copy output files and directories
-                for item in os.listdir(out_dir):
-                    src = os.path.join(out_dir, item)
-                    dst = os.path.join(dst_dir, item)
-                    
+                for item in out_dir.iterdir():
                     # Skip __pycache__ directories
-                    if os.path.basename(src) == "__pycache__":
+                    if item.name == "__pycache__":
                         continue
                         
-                    if os.path.isdir(src):
+                    dst = dst_dir / item.name
+                    if item.is_dir():
                         # Copy the directory excluding __pycache__
-                        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__"))
+                        shutil.copytree(item, dst, ignore=shutil.ignore_patterns("__pycache__"))
                     else:
-                        shutil.copy2(src, dst)
+                        shutil.copy2(item, dst)
         
         # Create zip file
-        zip_filename = f"{profile}.zip" if output_path is None else os.path.join(output_path, f"{profile}.zip")
+        zip_filename = f"{profile}.zip" if output_path is None else Path(output_path) / f"{profile}.zip"
         
         with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(temp_dir):
+            for root, dirs, files in Path(temp_dir).rglob('**/*'):
                 # Skip __pycache__ directories during zip creation
                 dirs[:] = [d for d in dirs if d != "__pycache__"]
                 
                 for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, temp_dir)
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(temp_dir_path)
                     zipf.write(file_path, arcname)
     
     print(f"Profile '{profile}' exported successfully to {zip_filename}")
-    return zip_filename
+    return str(zip_filename)
 
 def export_profile_interactive():
     """Interactive function to export a profile."""

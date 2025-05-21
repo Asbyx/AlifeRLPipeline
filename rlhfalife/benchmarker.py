@@ -1,4 +1,3 @@
-import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 import threading
@@ -10,6 +9,7 @@ import sys
 from scipy.stats import kendalltau
 from rlhfalife.utils import Generator, Rewarder, Simulator
 import traceback
+from pathlib import Path
 
 class LiveBenchmarkApp:
     """App for live benchmarking with auto-generated simulations and rewarder scoring."""
@@ -207,14 +207,13 @@ class LiveBenchmarkApp:
             return
             
         # Save the video (duplicate the file) and params
-        save_path = os.path.join(self.out_paths['saved_simulations'], 
-                                os.path.basename(self.videos[self.current_index]))
-        shutil.copy(self.videos[self.current_index], save_path)
+        save_path = Path(self.out_paths['saved_simulations']) / Path(self.videos[self.current_index]).name
+        shutil.copy2(self.videos[self.current_index], save_path)
         
         # Save parameters
         hash_value = self.generator.hash_params([self.params[self.current_index]])[0]
-        param_path = os.path.join(self.out_paths['saved_simulations'], str(hash_value))
-        self.simulator.save_param(self.params[self.current_index], param_path)
+        param_path = Path(self.out_paths['saved_simulations']) / str(hash_value)
+        self.simulator.save_param(self.params[self.current_index], str(param_path))
 
         print(f"Video saved to {self.out_paths['saved_simulations']}.")
         self.update_status(f"Video and its parameters saved to {self.out_paths['saved_simulations']} !")
@@ -247,8 +246,8 @@ class LiveBenchmarkApp:
         if hasattr(self, 'videos') and self.videos:
             for video_path in self.videos:
                 try:
-                    if os.path.exists(video_path): # Check if file exists before attempting to delete
-                        os.remove(video_path)
+                    if Path(video_path).exists(): # Check if file exists before attempting to delete
+                        Path(video_path).unlink()
                 except Exception as e:
                     print(f"Error deleting old video {video_path}: {e}")
             print("Deleted old benchmark videos.")
@@ -282,7 +281,8 @@ class LiveBenchmarkApp:
         if hasattr(self, 'videos') and self.videos:
             for video_path in self.videos:
                 try:
-                    os.remove(video_path)
+                    if Path(video_path).exists(): # Check if file exists before attempting to delete
+                        Path(video_path).unlink()
                 except Exception as e:
                     print(f"Error deleting {video_path}: {e}")
             print("Deleted all videos from the benchmark.")
@@ -515,7 +515,7 @@ class CreateBenchmarkApp:
                     print("Window closed during video saving, cleaning up temporary videos.")
                     for video_path in videos:
                         try:
-                            if os.path.exists(video_path): os.remove(video_path)
+                            if Path(video_path).exists(): Path(video_path).unlink()
                         except Exception as e_del: print(f"Error deleting temp video {video_path}: {e_del}")
                 return
 
@@ -542,7 +542,7 @@ class CreateBenchmarkApp:
                 print("Finishing generation but window is closing/closed. Cleaning up videos from this run.")
                 for video_path in videos:
                     try:
-                        if os.path.exists(video_path): os.remove(video_path)
+                        if Path(video_path).exists(): Path(video_path).unlink()
                     except Exception as e:
                         print(f"Error deleting temporary video {video_path} during _finish_generation on close: {e}")
             return
@@ -838,7 +838,7 @@ class CreateBenchmarkApp:
         from tkinter import filedialog
         custom_dir = filedialog.askdirectory(
             title="Select Directory to Save Benchmark",
-            initialdir=os.path.dirname(self.out_paths["benchmark"])
+            initialdir=Path(self.out_paths["benchmark"]).parent
         )
         
         if not custom_dir:  # User cancelled
@@ -860,9 +860,9 @@ class CreateBenchmarkApp:
     def _save_benchmark_to_location(self, benchmark_dir):
         """Save the benchmark to the specified location."""
         # Create directory if it doesn't exist
-        if os.path.exists(benchmark_dir):
+        if Path(benchmark_dir).exists():
             shutil.rmtree(benchmark_dir)
-        os.makedirs(benchmark_dir, exist_ok=True)
+        Path(benchmark_dir).mkdir(parents=True, exist_ok=True)
         
         # Calculate actual ranks based on relationships (= buttons)
         ranks = self.calculate_ranks()
@@ -872,19 +872,19 @@ class CreateBenchmarkApp:
         # Process outputs and create benchmark data in a single loop
         for i, (output, hash_val) in enumerate(zip(self.outputs, self.hashs)):
             # Save output and get the file path
-            output_file = self.simulator.save_output(output, os.path.join(benchmark_dir, hash_val))
+            output_file = self.simulator.save_output(output, Path(benchmark_dir) / hash_val)
             output_files.append(output_file)
             
             # Add entry to benchmark data
             benchmark_data.append({
                 'rank': ranks[i],
                 'hash': hash_val,
-                'output_file': os.path.basename(output_file),
+                'output_file': Path(output_file).name,
             })
         
         # Save to CSV
         df = pd.DataFrame(benchmark_data)
-        benchmark_csv = os.path.join(benchmark_dir, "benchmark.csv")
+        benchmark_csv = Path(benchmark_dir) / "benchmark.csv"
         df.to_csv(benchmark_csv, index=False)
 
         messagebox.showinfo("Success", f"Benchmark saved to {benchmark_dir}")
@@ -983,7 +983,8 @@ class CreateBenchmarkApp:
         # Delete temporary videos (self.videos list)
         for video_path in self.videos:
             try:
-                os.remove(video_path)
+                if Path(video_path).exists(): # Check if file exists before attempting to delete
+                    Path(video_path).unlink()
             except Exception as e:
                 print(f"Error deleting {video_path}: {e}")
         
@@ -1159,10 +1160,10 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
         if verbose:
             print(*args, **kwargs)
     
-    benchmark_file = os.path.join(out_paths["benchmark"], "benchmark.csv")
+    benchmark_file = Path(out_paths["benchmark"]) / "benchmark.csv"
     
     # Check if benchmark exists
-    if not os.path.exists(benchmark_file):
+    if not benchmark_file.exists():
         print(f"Error: Benchmark file not found.")
         print("Please create a benchmark first using option 2.")
         return
@@ -1189,14 +1190,14 @@ def test_rewarder_on_benchmark(simulator: Simulator, rewarder: Rewarder, out_pat
         for i, (_, row) in enumerate(benchmark_df.iterrows()):
             hash_val = row['hash']
             hashes.append(hash_val)
-            output_path = os.path.join(out_paths["benchmark"], hash_val)
+            output_path = Path(out_paths["benchmark"]) / hash_val
             try:
                 # Show progress
                 if verbose:
                     progress = f"[{i+1}/{total_outputs}]"
                     print(f"{progress} Loading output for hash {hash_val}...", end="\r")
                 
-                output = simulator.load_output(output_path)
+                output = simulator.load_output(str(output_path))
                 outputs.append(output)
             except Exception as e:
                 print(f"\nError loading output for hash {hash_val}: {e}")

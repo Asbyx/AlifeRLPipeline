@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import os
 import random
 import numpy as np
 from ..data_managers import TrainingDataset
@@ -12,6 +11,7 @@ from typing import List, Any, Optional
 import wandb
 from ..benchmarker import test_rewarder_on_benchmark
 from tqdm import tqdm
+from pathlib import Path
 
 class TorchRewarder(nn.Module, Rewarder):
     """
@@ -423,7 +423,7 @@ class TorchRewarder(nn.Module, Rewarder):
         Returns:
             The loaded rewarder
         """
-        if os.path.exists(self.model_path):
+        if Path(self.model_path).exists():
             checkpoint = torch.load(self.model_path, map_location=self.device)
             
             # Update config
@@ -453,16 +453,16 @@ class TorchRewarder(nn.Module, Rewarder):
             Path where preprocessed version should be stored
         """
         # Create temp directory next to model path if it doesn't exist
-        model_dir = os.path.dirname(self.model_path)
-        preprocessed_dir = os.path.join(model_dir, "preprocessed_temp")
-        os.makedirs(preprocessed_dir, exist_ok=True)
+        model_dir = Path(self.model_path).parent
+        preprocessed_dir = model_dir / "preprocessed_temp"
+        preprocessed_dir.mkdir(exist_ok=True)
         
         # Create unique filename based on original path and last modified time
-        file_stat = os.stat(data_path)
+        file_stat = Path(data_path).stat()
         unique_id = f"{data_path}_{file_stat.st_mtime}"
         filename_hash = hashlib.md5(unique_id.encode()).hexdigest()
         
-        return os.path.join(preprocessed_dir, f"{filename_hash}.pt")
+        return str(preprocessed_dir / f"{filename_hash}.pt")
     
     def _load_or_preprocess(self, data_path: str) -> torch.Tensor:
         """
@@ -477,12 +477,12 @@ class TorchRewarder(nn.Module, Rewarder):
         preprocessed_path = self._get_preprocessed_path(data_path)
         
         # If preprocessed file exists and is newer than original, load it
-        if os.path.exists(preprocessed_path):
-            if os.path.getmtime(preprocessed_path) >= os.path.getmtime(data_path):
-                return torch.load(preprocessed_path, map_location=self.device, weights_only=True)
+        if Path(preprocessed_path).exists():
+            if Path(preprocessed_path).stat().st_mtime >= Path(data_path).stat().st_mtime:
+                return torch.load(preprocessed_path, map_location=self.device)
         
         # Otherwise preprocess and save
-        data = torch.load(data_path, map_location=self.device, weights_only=True)
+        data = torch.load(data_path, map_location=self.device)
         preprocessed_data = self.preprocess([data])[0]
         torch.save(preprocessed_data, preprocessed_path)
         return preprocessed_data

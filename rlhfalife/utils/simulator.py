@@ -1,6 +1,6 @@
-import os
 import itertools
 from typing import List, Any, Callable, TYPE_CHECKING
+from pathlib import Path
 
 if TYPE_CHECKING:
     from .generator import Generator
@@ -194,22 +194,22 @@ class Simulator:
         Save videos from the outputs.
 
         Args:
-            hashs: Hashes of the para   meters
+            hashs: Hashes of the parameters
             outputs: Outputs to save
             vids_path: Path to the videos folder
 
         Returns:
-            The paths to the saved videos
+            List of paths to the saved videos
         """
         res = []
-        for i, output in enumerate(outputs):
-            res.append(os.path.join(vids_path, f"{hashs[i]}.mp4"))
-            self.save_video_from_output(output, res[-1])
+        for i in range(len(outputs)):
+            res.append(str(Path(vids_path) / f"{hashs[i]}.mp4"))
+            self.save_video_from_output(outputs[i], res[-1])
         return res
 
     def save_outputs(self, hashs: List[str], outputs: List[Any], outputs_path: str) -> List[str]:
         """
-        Save the outputs to the path.
+        Save outputs from the outputs.
 
         Args:
             hashs: Hashes of the parameters
@@ -217,17 +217,17 @@ class Simulator:
             outputs_path: Path to the outputs folder
 
         Returns:
-            The paths to the saved outputs
+            List of paths to the saved outputs
         """
         res = []
-        for i, output in enumerate(outputs):
-            path = os.path.join(outputs_path, f"{hashs[i]}")
-            res.append(self.save_output(output, path))
+        for i in range(len(outputs)):
+            path = Path(outputs_path) / f"{hashs[i]}"
+            res.append(self.save_output(outputs[i], str(path)))
         return res
 
     def save_params(self, hashs: List[str], params: List[Any], path: str) -> List[str]:
         """
-        Save the parameters to the path.
+        Save parameters.
 
         Args:
             hashs: Hashes of the parameters
@@ -235,10 +235,10 @@ class Simulator:
             path: Path to the parameters folder
 
         Returns:
-            The paths to the saved parameters
+            List of paths to the saved parameters
         """
         res = []
-        for i, param in enumerate(params):
-            param_path = os.path.join(path, f"{hashs[i]}")
-            res.append(self.save_param(param, param_path))
+        for i in range(len(params)):
+            param_path = Path(path) / f"{hashs[i]}"
+            res.append(self.save_param(params[i], str(param_path)))
         return res 

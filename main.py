@@ -1,9 +1,9 @@
-import os
 import json
 import argparse
 import importlib
 import sys
 import shutil
+from pathlib import Path
 from rlhfalife.labeler import launch_video_labeler
 from rlhfalife.quad_labeler import launch_quad_labeler
 from rlhfalife.benchmarker import launch_benchmarker
@@ -15,12 +15,13 @@ from dataset_analyzer import analyze_existing_dataset, print_analysis
 
 def get_available_profiles():
     """Get list of available profiles."""
-    return [d for d in os.listdir("profiles") if os.path.isdir(os.path.join("profiles", d)) and d != "__pycache__"]
+    profiles_path = Path("profiles")
+    return [d.name for d in profiles_path.iterdir() if d.is_dir() and d.name != "__pycache__"]
 
 def get_available_configs(profile):
     """Get list of available configs for a profile."""
-    return [c.split('.')[0] for c in os.listdir(os.path.join("profiles", profile, "configs")) 
-            if c != "__pycache__" and c.endswith('.json')]
+    configs_path = Path("profiles") / profile / "configs"
+    return [c.stem for c in configs_path.iterdir() if c.name != "__pycache__" and c.suffix == '.json']
 
 def select_profile(profile=None):
     """Select a profile, either from argument or via prompt."""
@@ -70,20 +71,20 @@ def select_config(profile, config=None):
 
 def setup_paths(profile, config):
     """Setup and return all necessary paths."""
-    out_path = os.path.join("out", profile, config)
+    out_path = Path("out") / profile / config
     out_paths = {
-        'outputs': os.path.join(out_path, "outputs"),
-        'videos': os.path.join(out_path, "videos"),
-        'params': os.path.join(out_path, "params"),
-        'rewarder': os.path.join(out_path, "rewarder"),
-        'generator': os.path.join(out_path, "generator"),
-        'saved_simulations': os.path.join(out_path, "saved_simulations"),
-        'benchmark': os.path.join("out", profile, "benchmark"),
+        'outputs': out_path / "outputs",
+        'videos': out_path / "videos",
+        'params': out_path / "params",
+        'rewarder': out_path / "rewarder",
+        'generator': out_path / "generator",
+        'saved_simulations': out_path / "saved_simulations",
+        'benchmark': Path("out") / profile / "benchmark",
     }
 
     # Create all directories
     for path in out_paths.values():
-        os.makedirs(path, exist_ok=True)
+        path.mkdir(parents=True, exist_ok=True)
 
     return out_path, out_paths
 
@@ -179,13 +180,14 @@ def main():
         exit(1)
 
     # Load the config
-    config_file_path = os.path.join("profiles", profile, "configs", f"{config}.json")
-    config_dict = json.load(open(config_file_path))
+    config_file_path = Path("profiles") / profile / "configs" / f"{config}.json"
+    with open(config_file_path) as f:
+        config_dict = json.load(f)
 
     # Setup paths
     out_path, out_paths = setup_paths(profile, config)
-    dataset_path = os.path.join(out_path, "dataset.csv")
-    pairs_path = os.path.join(out_path, "pairs.csv")
+    dataset_path = out_path / "dataset.csv"
+    pairs_path = out_path / "pairs.csv"
 
     # Main loop
     loader = profile_module.Loader()
@@ -240,8 +242,9 @@ def main():
                     print("Please enter a valid number")
             case "8":
                 print("Reloading models and data managers...")
-                config_file_path = os.path.join("profiles", profile, "configs", f"{config}.json")
-                config_dict = json.load(open(config_file_path))
+                config_file_path = Path("profiles") / profile / "configs" / f"{config}.json"
+                with open(config_file_path) as f:
+                    config_dict = json.load(f)
             case "9":
                 print("\nExport Profile")
                 export_profile_interactive()

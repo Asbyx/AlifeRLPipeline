@@ -3,7 +3,6 @@ from tkinter import messagebox, simpledialog
 import cv2
 from PIL import Image, ImageTk
 from tkinter import ttk
-import numpy as np
 import threading
 from rlhfalife.utils import Simulator
 from rlhfalife.data_managers import DatasetManager, PairsManager
