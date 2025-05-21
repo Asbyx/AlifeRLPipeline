@@ -308,48 +308,99 @@ class PairsManager:
         """Save the pairs to the CSV file."""
         self.pairs_df.to_csv(self.pairs_path, index=False)
     
-    def _add_pair(self, hash1: str, hash2: str, winner: Optional[float] = None):
-        """
-        Add a new pair to the dataset.
-        
-        Args:
-            hash1: Hash value of the first simulation
-            hash2: Hash value of the second simulation
-        """
-        # Check if the pair already exists
-        existing_pair = self.pairs_df[
-            ((self.pairs_df['hash1'] == hash1) & (self.pairs_df['hash2'] == hash2)) |
-            ((self.pairs_df['hash1'] == hash2) & (self.pairs_df['hash2'] == hash1))
-        ]
-        
-        if len(existing_pair) > 0:
-            idx = existing_pair.index[0]
-            self.pairs_df.at[idx, 'winner'] = winner
-        else:
-            new_pair = pd.DataFrame({
-                'hash1': [hash1],
-                'hash2': [hash2],
-                'winner': [winner]
-            })
-            self.pairs_df = pd.concat([self.pairs_df, new_pair], ignore_index=True)
-        
-        # Save the updated pairs
-        self.save()
-    
     def add_pairs(self, pairs: List[Tuple[str, str]], winners: Optional[List[float]] = None):
         """
-        Add multiple pairs to the dataset.
+        Add multiple pairs to the dataset. Optimized for faster execution.
         
         Args:
             pairs: List of (hash1, hash2) tuples
-            winners: Optional list of winner hash values
+            winners: Optional list of winner values (0 for hash1, 1 for hash2, 0.5 for draw)
         """
-        if winners is None:
-            winners = [None] * len(pairs)
+        if not pairs:
+            self._reindex_pairs()
+            return
+
+        effective_winners = [None] * len(pairs) if winners is None else winners
+        if len(pairs) != len(effective_winners):
+            raise ValueError("Length of pairs and winners must match.")
+
+        input_df = pd.DataFrame(pairs, columns=['p_hash1', 'p_hash2'])
+        input_df['p_winner'] = effective_winners
+        input_df['p_id'] = input_df.index # Unique ID for each input pair
+
+        # Use a temporary column for original index of self.pairs_df.
+        # This helps in updating the correct rows in self.pairs_df.
+        temp_df_indices_col = '__original_df_idx__'
+        df_with_orig_idx = self.pairs_df.reset_index().rename(columns={'index': temp_df_indices_col})
+
+        # Update existing pairs that match (hash1, hash2) order
+        merged_fwd = pd.merge(
+            df_with_orig_idx, input_df, 
+            left_on=['hash1', 'hash2'], 
+            right_on=['p_hash1', 'p_hash2'], 
+            how='inner'
+        )
+
+        if not merged_fwd.empty:
+            update_map_fwd = pd.Series(merged_fwd['p_winner'].values, index=merged_fwd[temp_df_indices_col])
+            self.pairs_df.update(pd.Series(update_map_fwd, name='winner'))
         
-        for i, (hash1, hash2) in enumerate(pairs):
-            self._add_pair(hash1, hash2, winners[i])
-        self._reindex_pairs()
+        processed_p_ids = set(merged_fwd['p_id'].unique())
+
+        # Update existing pairs that match (hash2, hash1) order
+        remaining_input_df = input_df[~input_df['p_id'].isin(processed_p_ids)]
+        if not remaining_input_df.empty:
+            merged_bwd = pd.merge(
+                df_with_orig_idx, remaining_input_df,
+                left_on=['hash1', 'hash2'],
+                right_on=['p_hash2', 'p_hash1'], # Note swapped columns
+                how='inner'
+            )
+            if not merged_bwd.empty:
+                bwd_adjusted_winners = merged_bwd['p_winner'].apply(
+                    lambda w: (1.0 - w) if isinstance(w, (float, int)) else None
+                )
+                update_map_bwd = pd.Series(bwd_adjusted_winners.values, index=merged_bwd[temp_df_indices_col])
+                self.pairs_df.update(pd.Series(update_map_bwd, name='winner'))
+                processed_p_ids.update(merged_bwd['p_id'].unique())
+
+        # Add new pairs
+        new_pairs_to_add_df = input_df[~input_df['p_id'].isin(processed_p_ids)]
+        if not new_pairs_to_add_df.empty:
+            # Prepare for canonicalization: select relevant columns and copy
+            temp_new_pairs = new_pairs_to_add_df[['p_hash1', 'p_hash2', 'p_winner']].copy()
+
+            # Apply canonicalization: ensure p_hash1 <= p_hash2
+            # Create mask for rows where p_hash1 > p_hash2
+            mask_swap = temp_new_pairs['p_hash1'] > temp_new_pairs['p_hash2']
+            
+            # Store original p_hash1 for swapped rows to correctly assign to p_hash2
+            original_p_hash1_for_swapped = temp_new_pairs.loc[mask_swap, 'p_hash1']
+            
+            # Perform swap for p_hash1 and p_hash2 where needed
+            temp_new_pairs.loc[mask_swap, 'p_hash1'] = temp_new_pairs.loc[mask_swap, 'p_hash2']
+            temp_new_pairs.loc[mask_swap, 'p_hash2'] = original_p_hash1_for_swapped
+            
+            # Adjust winner for swapped rows
+            temp_new_pairs.loc[mask_swap, 'p_winner'] = temp_new_pairs.loc[mask_swap, 'p_winner'].apply(
+                lambda w: (1.0 - w) if isinstance(w, (float, int)) else None
+            )
+            
+            # Rename columns to final schema ('hash1', 'hash2', 'winner')
+            temp_new_pairs.rename(columns={'p_hash1': 'hash1', 'p_hash2': 'hash2', 'p_winner': 'winner'}, inplace=True)
+            
+            # Deduplicate based on canonical (hash1, hash2), keeping the last occurrence
+            # from the input batch (implicit by current DataFrame row order which preserves input order).
+            final_new_rows = temp_new_pairs.drop_duplicates(subset=['hash1', 'hash2'], keep='last')
+
+            # deduplicate based on hash1 and hash2 such that hash1 != hash2
+            final_new_rows = final_new_rows[final_new_rows['hash1'] != final_new_rows['hash2']]
+            
+            # Concatenate the unique, canonical new pairs, if any remain after deduplication
+            if not final_new_rows.empty:
+                self.pairs_df = pd.concat([self.pairs_df, final_new_rows], ignore_index=True)
+        
+        self._reindex_pairs() # This method calls self.save()
     
     def _get_unranked_pairs(self) -> pd.DataFrame:
         """Get all unranked pairs (where winner is null)."""
@@ -380,7 +431,7 @@ class PairsManager:
         if len(pair_idx) > 0:
             self.pairs_df.at[pair_idx[0], 'winner'] = winner if self.pairs_df.at[pair_idx[0], 'hash1'] == hash1 else 1 - winner
         else:
-            self._add_pair(hash1, hash2, winner)
+            self.add_pairs([(hash1, hash2)], [winner])
     
     def _get_all_pairs(self) -> pd.DataFrame:
         """Get all pairs."""
