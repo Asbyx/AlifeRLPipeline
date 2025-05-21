@@ -113,15 +113,16 @@ class Simulator:
 
     #-------- Built in --------#
     def generate_pairs(self, nb_params: int, dataset_manager: "DatasetManager", pairs_manager: "PairsManager", 
-                      verbose: bool = False, progress_callback: Callable[[str], bool] = None) -> bool:
+                      batch_size: int = None, verbose: bool = False, progress_callback: Callable[[str], bool] = None) -> bool:
         """
         Generate pairs of simulations to be ranked.
         Add the new simulations to the pairs.csv for all possible pairs, including existing ones.
         
         Args:
-            nb_params: Number of parameters to generate
+            nb_params: Total number of parameters to generate
             dataset_manager: DatasetManager instance for storing simulation data
             pairs_manager: PairsManager instance for storing pairs
+            batch_size: Number of parameters to generate in each batch. If None, all parameters are generated in one batch.
             verbose: Whether to print verbose output
             progress_callback: Optional callback function to report progress
                               Should accept a message string and return True to continue, False to cancel
@@ -133,60 +134,86 @@ class Simulator:
             if progress_callback:
                 progress_callback(message)
         
-        # Generate parameters
-        report_progress("Generating parameters...")
-        params = self.generator.generate(nb_params)
-
-        # check if two params are the same
-        if any(str(params[i]) == str(params[j]) for i in range(len(params)) for j in range(i+1, len(params))):
-            print("\n" + "="*50)
-            print("!!! WARNING !!!: Generator generated at least two identical parameters.")
-            # filter out the identical parameters
-            params = [params[i] for i in range(len(params)) if not any(str(params[i]) == str(params[j]) for j in range(i+1, len(params)))]
-            print(f"Unique parameters: {len(params)}, over {nb_params} generated.")
-            print("="*50 + "\n")
-
-        hashs = [str(h) for h in self.generator.hash_params(params)]
-
-        # Run simulations
-        report_progress("Running simulations...")
-        outputs = self.run(params)
-
-        # Save parameters
-        report_progress("Saving parameters...")
-        param_paths = self.save_params(hashs, params, dataset_manager.out_paths['params'])
+        if batch_size is None:
+            batch_size = nb_params
         
-        # Save outputs
-        report_progress("Saving outputs...")
-        output_paths = self.save_outputs(hashs, outputs, dataset_manager.out_paths['outputs'])
+        num_batches = (nb_params + batch_size - 1) // batch_size # Calculate number of batches, ceiling division
+        
+        all_generated_hashes = []
+        for batch_num in range(num_batches):
+            current_batch_size = min(batch_size, nb_params - (batch_num * batch_size))
+            if current_batch_size <= 0:
+                break
 
-        # Save videos
-        report_progress("Generating and saving videos...")
-        video_paths = self.save_videos(hashs, outputs, dataset_manager.out_paths['videos'])
+            report_progress(f"Processing Batch {batch_num + 1}/{num_batches} (Size: {current_batch_size})...")
 
-        # Add entries to dataset manager
-        report_progress("Adding entries to dataset manager...")
-        dataset_manager.add_entries_from_simulation(hashs, params, outputs, param_paths, output_paths, video_paths)
+            # Generate parameters
+            report_progress(f"  Generating {current_batch_size} parameters...")
+            params = self.generator.generate(current_batch_size)
+
+            # check if two params are the same
+            if any(str(params[i]) == str(params[j]) for i in range(len(params)) for j in range(i+1, len(params))):
+                print("\n" + "="*50)
+                print("!!! WARNING !!!: Generator generated at least two identical parameters within a batch.")
+                # filter out the identical parameters
+                unique_params_in_batch = []
+                seen_params_str = set()
+                for p in params:
+                    p_str = str(p)
+                    if p_str not in seen_params_str:
+                        unique_params_in_batch.append(p)
+                        seen_params_str.add(p_str)
+                params = unique_params_in_batch
+                print(f"  Unique parameters in this batch: {len(params)}, over {current_batch_size} generated.")
+                print("="*50 + "\n")
+            
+            if not params: # if all params in batch were duplicates or batch size was 0
+                report_progress(f"  Skipping Batch {batch_num + 1} due to no unique parameters.")
+                continue
+
+            hashs = [str(h) for h in self.generator.hash_params(params)]
+            all_generated_hashes.extend(hashs)
+
+            # Run simulations
+            report_progress(f"  Running {len(params)} simulations...")
+            outputs = self.run(params)
+
+            # Save parameters
+            report_progress("  Saving parameters...")
+            param_paths = self.save_params(hashs, params, dataset_manager.out_paths['params'])
+            
+            # Save outputs
+            report_progress("  Saving outputs...")
+            output_paths = self.save_outputs(hashs, outputs, dataset_manager.out_paths['outputs'])
+
+            # Save videos
+            report_progress(f"  Generating and saving {len(outputs)} videos...")
+            video_paths = self.save_videos(hashs, outputs, dataset_manager.out_paths['videos'])
+
+            # Add entries to dataset manager
+            report_progress(f"  Adding {len(hashs)} entries to dataset manager...")
+            dataset_manager.add_entries_from_simulation(hashs, params, outputs, param_paths, output_paths, video_paths)
+
+        if not all_generated_hashes:
+            report_progress("No new simulations were generated (possibly all were duplicates or nb_params was 0).")
+            return True
 
         # Get all existing hashes from the dataset
-        report_progress("Loading existing hashes...")
-        existing_hashs = dataset_manager.get_all_hashes()
+        report_progress("Loading existing hashes from dataset...")
+        existing_hashs = dataset_manager.get_all_hashes() # These include the newly added ones as well
 
         # Generate all possible pairs of new simulations
-        report_progress("Generating new pairs...")
-        new_pairs = list(itertools.combinations(hashs, 2))
-
-        # Generate pairs with existing simulations
-        report_progress("Combining with existing simulations...")
-        for new_hash in hashs:
-            for existing_hash in existing_hashs:
-                if new_hash != existing_hash and (new_hash, existing_hash) not in new_pairs and (existing_hash, new_hash) not in new_pairs:
-                    new_pairs.append((new_hash, existing_hash))
+        report_progress("Generating new pairs from recently generated simulations...")
+        new_pairs = list(set(itertools.combinations(all_generated_hashes+existing_hashs, 2)))
 
         # Add new pairs to the pairs manager
-        report_progress(f"Adding {len(new_pairs)} new pairs...")
-        pairs_manager.add_pairs(new_pairs)
+        if new_pairs:
+            report_progress(f"Adding {len(new_pairs)} new pairs to pairs manager...")
+            pairs_manager.add_pairs(new_pairs)
+        else:
+            report_progress("No new unique pairs to add.")
         
+        report_progress("Pair generation complete.")
         return True
 
     def save_videos(self, hashs: List[str], outputs: List[Any], vids_path: str) -> List[str]:

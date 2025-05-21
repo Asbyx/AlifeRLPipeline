@@ -140,7 +140,7 @@ def load_profile_module(profile):
         print(f"Error loading profile '{profile}': {str(e)}")
         return None
 
-def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, verbose=True):
+def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, batch_size=None, verbose=True):
     """
     Generate pairs without GUI.
     
@@ -149,6 +149,7 @@ def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, verb
         dataset_manager: DatasetManager instance for storing simulation data
         pairs_manager: PairsManager instance for storing pairs
         num_sims: Number of simulations to generate
+        batch_size: Number of simulations to generate in each batch. If None, all are done in one batch.
         verbose: Whether to print verbose output
     
     Returns:
@@ -160,6 +161,7 @@ def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, verb
             num_sims, 
             dataset_manager, 
             pairs_manager, 
+            batch_size=batch_size,
             verbose=verbose
         )
         print(f"Successfully generated {num_sims} simulations.")
@@ -273,12 +275,22 @@ def main():
 # Helper functions for menu actions to keep the main loop cleaner
 def generate_pairs_cli_action(simulator, dataset_manager, pairs_manager):
     try:
-        num_sims_str = input("Enter number of simulations to generate (default: 5): ") or "5"
+        num_sims_str = input("Enter total number of simulations to generate (default: 5): ") or "5"
         num_sims = int(num_sims_str)
         if num_sims <= 0:
             print("Number of simulations must be positive")
             return
-        generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
+        
+        batch_size_str = input(f"Enter batch size (press Enter for no batching): ") or str(num_sims)
+        batch_size = int(batch_size_str)
+        if batch_size <= 0:
+            print("Batch size must be positive.")
+            return
+        if batch_size > num_sims:
+            batch_size = num_sims
+            print(f"Batch size was larger than total simulations, setting batch size to {num_sims}.")
+
+        generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, batch_size=batch_size)
     except ValueError:
         print("Please enter a valid number.")
 
