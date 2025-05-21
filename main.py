@@ -26,20 +26,34 @@ def get_available_configs(profile):
 def select_profile(profile=None):
     """Select a profile, either from argument or via prompt."""
     profiles = get_available_profiles()
-    
+
     if len(profiles) == 0:
         print("No profiles found. Please create a profile first. See the README for more information.")
         exit(1)
 
     if profile is None:
         print("Available profiles:")
-        for p in profiles:
-            print(f"- {p}")
-        profile = input("\nPlease enter the profile you want to use: ")
-
-        while profile not in profiles:
-            print(f"Profile '{profile}' not found. Please enter a valid profile.")
-            profile = input("\nPlease enter the profile you want to use: ")
+        for i, p_name in enumerate(profiles):
+            print(f"  {i + 1}. {p_name}")
+        
+        while True:
+            try:
+                choice = input(f"\nPlease enter the profile you want to use (number or name): ")
+                if choice.isdigit():
+                    index = int(choice) - 1
+                    if 0 <= index < len(profiles):
+                        profile = profiles[index]
+                        break
+                    else:
+                        print(f"Invalid number. Please enter a number between 1 and {len(profiles)}.")
+                elif choice in profiles:
+                    profile = choice
+                    break
+                else:
+                    print(f"Profile '{choice}' not found. Please enter a valid profile name or number.")
+            except ValueError:
+                print("Invalid input. Please enter a valid profile name or number.")
+                
     elif profile not in profiles:
         print(f"Error: Profile '{profile}' not found.")
         exit(1)
@@ -49,20 +63,34 @@ def select_profile(profile=None):
 def select_config(profile, config=None):
     """Select a config, either from argument or via prompt."""
     configs = get_available_configs(profile)
-    
+
     if len(configs) == 0:
-        print("No configs found. Please create configs first. See the README for more information.")
+        print(f"No configs found for profile '{profile}'. Please create configs first. See the README for more information.")
         exit(1)
 
     if config is None:
-        print("Available configs:")
-        for c in configs:
-            print(f"- {c}")
-        config = input("\nPlease enter the config you want to use: ")
+        print(f"\nAvailable configs for profile '{profile}':")
+        for i, c_name in enumerate(configs):
+            print(f"  {i + 1}. {c_name}")
+        
+        while True:
+            try:
+                choice = input(f"\nPlease enter the config you want to use (number or name): ")
+                if choice.isdigit():
+                    index = int(choice) - 1
+                    if 0 <= index < len(configs):
+                        config = configs[index]
+                        break
+                    else:
+                        print(f"Invalid number. Please enter a number between 1 and {len(configs)}.")
+                elif choice in configs:
+                    config = choice
+                    break
+                else:
+                    print(f"Config '{choice}' not found. Please enter a valid config name or number.")
+            except ValueError:
+                print("Invalid input. Please enter a valid config name or number.")
 
-        while config not in configs:
-            print(f"Config '{config}' not found. Please enter a valid config.")
-            config = input("\nPlease enter the config you want to use: ")
     elif config not in configs:
         print(f"Error: Config '{config}' not found in profile '{profile}'.")
         exit(1)
@@ -144,20 +172,25 @@ def generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims, verb
 
 def print_menu():
     print("\nAlifeHub - Main Menu")
-    print("1. Label Pairs (needs GUI)")
-    print("2. Quad Labeler (needs GUI)")
-    print("3. Benchmark rewarder")
-    print("4. Launch training")
-    print("5. Generate pairs (no GUI)")
-    print("\n6. Reload new code")
-    print("7. Change frame size")
-    print("8. Reload models and data managers (updates config)")
-    print("9. Export profile")
-    print("A. Analyze training dataset")
-    print("B. Reset labels (keep simulations and pairs)")
-    print("C. Reset config (erase everything)")
-    print("0. Exit")
-    return input("Please choose an option (0-9, A-C): ")
+    print("\n--- Data Labeling ---")
+    print("  1. Label Pairs (needs GUI)")
+    print("  2. Quad Labeler (needs GUI)")
+    print("\n--- Training & Generation ---")
+    print("  3. Launch training")
+    print("  4. Generate pairs (no GUI)")
+    print("  5. Benchmark rewarder")
+    print("\n--- Profile & Configuration ---")
+    print("  6. Export profile")
+    print("  7. Reload new code")
+    print("  8. Reload models and data managers (updates config)")
+    print("  9. Change frame size")
+    print("\n--- Data Management ---")
+    print("  A. Analyze training dataset")
+    print("  B. Reset labels (keep simulations and pairs)")
+    print("  C. Reset config (erase everything)")
+    print("\n--- General ---")
+    print("  0. Exit")
+    return input("\nPlease choose an option: ").upper()
 
 def main():
     # Parse command line arguments
@@ -191,9 +224,22 @@ def main():
 
     # Main loop
     loader = profile_module.Loader()
+
+    menu_actions = {
+        "1": lambda: launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size)),
+        "2": lambda: launch_quad_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size)),
+        "3": lambda: launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager),
+        "4": lambda: generate_pairs_cli_action(simulator, dataset_manager, pairs_manager),
+        "5": lambda: launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size)),
+        "6": lambda: export_profile_interactive(),
+        "9": lambda: change_frame_size_action(args),
+        "A": lambda: analyze_dataset_action(dataset_manager, pairs_manager),
+        "B": lambda: reset_labels_action(pairs_manager),
+        "C": lambda: reset_config_action(out_path, profile, config),
+    }
     
     while True:
-        print("Loading the generator, rewarder and simulator...")
+        print("\nLoading the generator, rewarder and simulator...")
         generator, rewarder, simulator = loader.load(out_paths, config_dict)
         
         print("\nBuilding the data managers...")
@@ -205,80 +251,77 @@ def main():
         choice = print_menu()
         print()
         
-        match choice:
-            case "1":
-                launch_video_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
-            case "2":
-                launch_quad_labeler(simulator, dataset_manager, pairs_manager, verbose=False, frame_size=(args.frame_size, args.frame_size))
-            case "3":
-                launch_benchmarker(simulator, generator, rewarder, out_paths, frame_size=(args.frame_size, args.frame_size))
-            case "4":
-                launch_training(generator, rewarder, simulator, pairs_manager, dataset_manager)
-            case "5":
-                try:
-                    num_sims = int(input("Enter number of simulations to generate: ") or "5")
-                    if num_sims <= 0:
-                        print("Number of simulations must be positive")
-                        continue
-                    
-                    generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
-                except ValueError:
-                    print("Please enter a valid number")
-            case "6":
-                print("Reloading new code...")            
-                profile_module = load_profile_module(profile)
-                if profile_module is None:
-                    exit(1)
-                loader = profile_module.Loader()
-            case "7":
-                try:
-                    new_size = int(input("Enter new frame size (default: 300): ") or "300")
-                    if new_size > 0:
-                        args.frame_size = new_size
-                        print(f"Frame size updated to {new_size}")
-                    else:
-                        print("Frame size must be positive")
-                except ValueError:
-                    print("Please enter a valid number")
-            case "8":
-                print("Reloading models and data managers...")
-                config_file_path = Path("profiles") / profile / "configs" / f"{config}.json"
-                with open(config_file_path) as f:
-                    config_dict = json.load(f)
-            case "9":
-                print("\nExport Profile")
-                export_profile_interactive()
-            case "A" | "a":
-                print("\nAnalyzing Training Dataset")
-                analysis = analyze_existing_dataset(dataset_manager, pairs_manager)
-                print_analysis(analysis)
-                input("\nPress Enter to continue...")
-            case "B" | "b":
-                print("Resetting Labels ")
-                confirmation = input("Are you sure you want to reset all labels? This will clear all winners. (y/n): ")
-                if confirmation.lower() == 'y':
-                    pairs_manager.reset_rankings()
-                    print(f"All rankings have been reset. Number of unranked pairs: {pairs_manager.get_nb_unranked_pairs()}")
-                else:
-                    print("Reset operation cancelled.")
-            case "C" | "c":
-                print("Resetting Config")
-                confirmation = input(f"Are you sure you want to reset the config '{config}' for profile '{profile}'? This will delete all associated data. (y/n): ")
-                if confirmation.lower() == 'y':
-                    try:
-                        shutil.rmtree(out_path)
-                        print(f"Config '{config}' for profile '{profile}' has been reset.")
-                        print("Please restart the application.")
-                        exit(0)
-                    except Exception as e:
-                        print(f"Error resetting config: {str(e)}")
-                else:
-                    print("Reset operation cancelled.")
-            case "0":
-                print("Exiting AlifeHub...")
-                break
-            case _:
-                print("Invalid option. Please try again.")
+        if choice == "0":
+            print("Exiting AlifeHub...")
+            break
+        elif choice == "7":
+            print("Reloading new code...")            
+            profile_module = load_profile_module(profile)
+            loader = profile_module.Loader()
+            print("Code reloaded. Models and data managers will be reloaded on next action or if you select option 8.")
+        elif choice == "8":
+            print("Reloading models and data managers...")
+            config_file_path = Path("profiles") / profile / "configs" / f"{config}.json"
+            with open(config_file_path) as f:
+                config_dict = json.load(f)
+            print("Models and data managers will be reloaded.")
+        elif choice in menu_actions:
+            menu_actions[choice]()
+        else:
+            print("Invalid option. Please try again.")
+
+# Helper functions for menu actions to keep the main loop cleaner
+def generate_pairs_cli_action(simulator, dataset_manager, pairs_manager):
+    try:
+        num_sims_str = input("Enter number of simulations to generate (default: 5): ") or "5"
+        num_sims = int(num_sims_str)
+        if num_sims <= 0:
+            print("Number of simulations must be positive")
+            return
+        generate_pairs_cli(simulator, dataset_manager, pairs_manager, num_sims)
+    except ValueError:
+        print("Please enter a valid number.")
+
+def change_frame_size_action(args):
+    try:
+        new_size_str = input(f"Enter new frame size (current: {args.frame_size}, default: 300): ") or "300"
+        new_size = int(new_size_str)
+        if new_size > 0:
+            args.frame_size = new_size
+            print(f"Frame size updated to {new_size}.")
+        else:
+            print("Frame size must be positive.")
+    except ValueError:
+        print("Please enter a valid number.")
+
+def analyze_dataset_action(dataset_manager, pairs_manager):
+    print("\nAnalyzing Training Dataset")
+    analysis = analyze_existing_dataset(dataset_manager, pairs_manager)
+    print_analysis(analysis)
+    input("\nPress Enter to continue...")
+
+def reset_labels_action(pairs_manager):
+    print("\nResetting Labels")
+    confirmation = input("Are you sure you want to reset all labels? This will clear all winners. (y/n): ").lower()
+    if confirmation == 'y':
+        pairs_manager.reset_rankings()
+        print(f"All rankings have been reset. Number of unranked pairs: {pairs_manager.get_nb_unranked_pairs()}")
+    else:
+        print("Reset operation cancelled.")
+
+def reset_config_action(out_path, profile, config):
+    print("\nResetting Config")
+    confirmation = input(f"Are you sure you want to reset the config '{config}' for profile '{profile}'? This will delete all associated data. (y/n): ").lower()
+    if confirmation == 'y':
+        try:
+            shutil.rmtree(out_path)
+            print(f"Config '{config}' for profile '{profile}' has been reset.")
+            print("Please restart the application.")
+            exit(0)
+        except Exception as e:
+            print(f"Error resetting config: {str(e)}")
+    else:
+        print("Reset operation cancelled.")
 
 if __name__ == "__main__":
     main()
